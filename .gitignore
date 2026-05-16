@@ -30,6 +30,15 @@ frontend/out/
 frontend/.env
 frontend/.env.local
 frontend/.env.production
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+frontend/coverage/
+frontend/.vercel
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/*.pem
 
 # Environment files
 .env
