@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import type { TraceStep } from '@/types'
 
-const WS_URL = 'ws://localhost:8080/ws/traces'
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8080/ws/traces'
 
 export function useTraceWebSocket(runId: string, enabled: boolean) {
   const addStep = useLiveTraceStore((s) => s.addStep)
