@@ -18,6 +18,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Replay any run** — re-execute a past run with the same task; navigate live to the new run's trace
 - **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
 - **Failure detection** — every failed run is automatically tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); a red banner, highlighted timeline steps, and a graph node outline surface the failure without manual trace inspection
+- **Autonomous eval generation** — every failed run automatically creates a regression test entry and a failing evaluation; when the same task passes later, the evaluation flips to passing; the Evaluations page shows all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status chips; a "Generate Eval" button on any failed run's trace viewer lets you trigger this manually
 
 ---
 
@@ -51,6 +52,8 @@ PostgreSQL  ◄─────────────────────�
 4. After each step, FastAPI calls `POST /api/runs/{id}/traces` — Spring Boot persists it and broadcasts it over WebSocket
 5. The frontend receives those WebSocket events and adds each step to the trace timeline in real time
 6. When the agent finishes, Spring Boot marks the run `SUCCESS` or `FAILED` with total latency and token count
+7. Spring Boot runs failure detection — if the run failed, it tags the run with a reason code
+8. Spring Boot runs eval generation — if the run failed, a regression test and a failing evaluation are created automatically; if the run succeeded and a regression test already exists for that task, a passing evaluation is recorded
 
 ---
 
@@ -165,8 +168,8 @@ These defaults come from `backend/src/main/resources/application.properties` and
 |---|---|
 | `agent_runs` | One row per agent execution — id, task, status, latency, tokens, failure reason |
 | `trace_steps` | One row per step within a run — event type, tool name, prompt, response, latency |
-| `evaluations` | Pass/fail scores for runs (used in later phases) |
-| `regression_tests` | Auto-generated test cases from failures (used in later phases) |
+| `evaluations` | Pass/fail scores per run — score `1.0` = passing, `0.0` = failing |
+| `regression_tests` | Auto-generated test cases from failures — input, expected failure reason, type (`AUTO`/`MANUAL`) |
 
 **Inspect the database directly:**
 ```bash
@@ -195,6 +198,8 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
 | `POST` | `/api/runs/{id}/replay` | Re-run a past task; returns new run linked to original |
 | `GET` | `/api/runs/{id}/traces` | Get all trace steps for a run |
+| `GET` | `/api/regression-tests` | List all regression tests with derived `latestStatus` |
+| `POST` | `/api/runs/{id}/eval` | Manually trigger eval generation for a failed run |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -227,19 +232,19 @@ AgentScope/
 ├── docker-compose.yml           All four services (postgres, backend, runtime, frontend)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /analytics
-│       ├── components/          UI components (runs, traces, analytics, layout)
-│       ├── hooks/               TanStack Query hooks + WebSocket hook
+│       ├── app/                 Pages: /runs, /runs/[id], /analytics, /evaluations
+│       ├── components/          UI components (runs, traces, analytics, evaluations, layout)
+│       ├── hooks/               TanStack Query hooks + WebSocket hook + eval hooks
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints
-│       ├── service/             Business logic
-│       ├── model/               JPA entities
-│       ├── dto/                 Data transfer objects
-│       ├── repository/          Database queries
+│       ├── controller/          REST endpoints (RunController, TraceController, EvaluationController)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest)
+│       ├── dto/                 Data transfer objects (AgentRunDto, RegressionTestDto, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
@@ -293,4 +298,4 @@ The LangGraph workflow runs these in sequence: Planner → Tool Selection → To
 | — | Infrastructure — Dockerfiles for all services, single `docker compose up --build` | Done |
 | 5 | Replay system — re-run any past task, diff the outputs | Done |
 | 6 | Failure detection — auto-tag and surface failure reasons | Done |
-| 7 | Autonomous eval generation — auto-create regression tests from failures | Planned |
+| 7 | Autonomous eval generation — auto-create regression tests, Evaluations page, Generate Eval button | Done |
