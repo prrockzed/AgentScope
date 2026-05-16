@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   BarChart,
   Bar,
@@ -100,12 +100,16 @@ interface Props {
 export function RunsActivityChart({ runs, isLoading, onRefresh }: Props) {
   const [gran, setGran] = useState<Granularity>('Daily')
   const [offset, setOffset] = useState(0)
+  const [clientNow, setClientNow] = useState<Date | null>(null)
+
+  // Initialise on the client only to avoid SSR/client date mismatch
+  useEffect(() => { setClientNow(new Date()) }, [])
 
   const windowSize = WINDOW_SIZE[gran]
 
   const { windowStart, windowEnd, buckets, totalRuns, failedRuns, runningRuns } =
     useMemo(() => {
-      const now = floorTo(new Date(), gran)
+      const now = floorTo(clientNow ?? new Date(), gran)
       const wEnd = addPeriods(now, gran, 1 + offset * windowSize)
       const wStart = addPeriods(wEnd, gran, -windowSize)
 
@@ -137,7 +141,7 @@ export function RunsActivityChart({ runs, isLoading, onRefresh }: Props) {
         failedRuns: failed,
         runningRuns: running,
       }
-    }, [runs, gran, offset, windowSize])
+    }, [runs, gran, offset, windowSize, clientNow])
 
   const controlStyle = {
     backgroundColor: 'var(--bg-elevated)',
@@ -167,8 +171,9 @@ export function RunsActivityChart({ runs, isLoading, onRefresh }: Props) {
           <span
             className="text-xs font-mono px-2 py-1 rounded"
             style={{ color: 'var(--text-primary)', minWidth: 170, textAlign: 'center', ...controlStyle }}
+            suppressHydrationWarning
           >
-            {toRangeLabel(windowStart, windowEnd, gran)}
+            {clientNow ? toRangeLabel(windowStart, windowEnd, gran) : '—'}
           </span>
           <button
             onClick={() => setOffset((o) => o + 1)}
