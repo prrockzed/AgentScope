@@ -40,3 +40,13 @@ export interface RegressionTest {
   createdAt: string
   latestStatus: string
 }
+
+export interface SavedRun {
+  savedRunId: string
+  runId: string
+  task: string | null
+  status: RunStatus
+  totalLatency: number | null
+  totalTokens: number | null
+  savedAt: string
+}

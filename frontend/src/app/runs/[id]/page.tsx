@@ -1,11 +1,13 @@
 'use client'
 
-import { use, useMemo, useState } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
 import { useReplayRun } from '@/hooks/useReplayRun'
 import { useGenerateEval } from '@/hooks/useGenerateEval'
+import { useIsRunSaved } from '@/hooks/useIsRunSaved'
+import { useSaveRun } from '@/hooks/useSaveRun'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
@@ -38,6 +40,9 @@ export default function TraceViewerPage({ params }: Props) {
 
   const replay = useReplayRun()
   const generateEvalMutation = useGenerateEval()
+  const { data: savedData } = useIsRunSaved(id)
+  const isSaved = savedData?.saved ?? false
+  const { save: saveRunMutation, unsave: unsaveRunMutation } = useSaveRun(id)
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
@@ -53,7 +58,7 @@ export default function TraceViewerPage({ params }: Props) {
   const liveStepIds = useMemo(() => new Set(liveSteps.map((s) => s.id)), [liveSteps])
 
   // Clear live steps when run finishes
-  useMemo(() => {
+  useEffect(() => {
     if (!isRunning) clearSteps()
   }, [isRunning, clearSteps])
 
@@ -96,6 +101,24 @@ export default function TraceViewerPage({ params }: Props) {
                     style={{ backgroundColor: '#4c0519', color: '#ef4444' }}
                   >
                     {generateEvalMutation.isPending ? 'Saving...' : 'Generate Eval'}
+                  </button>
+                )}
+
+                {/* Save Run button — hidden while RUNNING */}
+                {run.status !== 'RUNNING' && (
+                  <button
+                    disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
+                    onClick={() =>
+                      isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()
+                    }
+                    className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={
+                      isSaved
+                        ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
+                        : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                    }
+                  >
+                    {isSaved ? 'Saved' : 'Save Run'}
                   </button>
                 )}
 

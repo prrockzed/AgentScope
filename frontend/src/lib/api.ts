@@ -1,4 +1,4 @@
-import type { AgentRun, RegressionTest, TraceStep } from '@/types'
+import type { AgentRun, RegressionTest, SavedRun, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -47,4 +47,23 @@ export async function getRegressionTests(): Promise<RegressionTest[]> {
 export async function generateEval(runId: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/runs/${runId}/eval`, { method: 'POST' })
   if (!res.ok) throw new Error('Generate eval failed')
+}
+
+export async function getSavedRuns(): Promise<SavedRun[]> {
+  return fetcher<SavedRun[]>('/api/saved-runs')
+}
+
+export async function isRunSaved(id: string): Promise<{ saved: boolean }> {
+  return fetcher<{ saved: boolean }>(`/api/runs/${id}/saved`)
+}
+
+export async function saveRun(id: string): Promise<SavedRun> {
+  const res = await fetch(`${BASE_URL}/api/runs/${id}/save`, { method: 'POST' })
+  if (!res.ok) throw new Error('Save run failed')
+  return res.json() as Promise<SavedRun>
+}
+
+export async function unsaveRun(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/runs/${id}/save`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Unsave run failed')
 }
