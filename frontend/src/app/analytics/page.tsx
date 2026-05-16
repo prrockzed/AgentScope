@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useRuns } from '@/hooks/useRuns'
+import { formatDuration } from '@/lib/utils'
 import { StatCard } from '@/components/analytics/StatCard'
 import { LatencyChart } from '@/components/analytics/LatencyChart'
 import { TokenUsageChart } from '@/components/analytics/TokenUsageChart'
@@ -59,7 +60,7 @@ export default function AnalyticsPage() {
         <StatCard label="Total Runs" value={runs.length} />
         <StatCard
           label="Avg Latency"
-          value={stats?.avgLatency != null ? `${(stats.avgLatency / 1000).toFixed(1)}s` : '—'}
+          value={formatDuration(stats?.avgLatency)}
         />
         <StatCard
           label="Success Rate"

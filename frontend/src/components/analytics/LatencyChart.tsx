@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import type { AgentRun } from '@/types'
+import { formatDuration } from '@/lib/utils'
 
 interface Props {
   runs: AgentRun[]
@@ -42,11 +43,11 @@ export function LatencyChart({ runs }: Props) {
             tick={{ fill: '#8b8a9b', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `${v}ms`}
+            tickFormatter={(v) => formatDuration(v as number)}
           />
           <Tooltip
             contentStyle={{ backgroundColor: '#111118', border: '1px solid #1e1e2e', color: '#f1f0f5' }}
-            formatter={(v) => [`${v ?? 0}ms`, 'Latency']}
+            formatter={(v) => [formatDuration(v as number), 'Latency']}
           />
           <Line
             type="monotone"
