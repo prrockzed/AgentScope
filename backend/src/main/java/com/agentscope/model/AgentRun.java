@@ -31,4 +31,7 @@ public class AgentRun {
 
     @Column(name = "total_tokens")
     private Integer totalTokens;
+
+    @Column(columnDefinition = "TEXT")
+    private String task;
 }

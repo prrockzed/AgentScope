@@ -37,6 +37,7 @@ public class AgentRunService {
 
         AgentRun run = new AgentRun();
         run.setId(runId);
+        run.setTask(request.task());
         run.setStatus("RUNNING");
         run.setCreatedAt(Instant.now());
         agentRunRepository.save(run);
@@ -80,6 +81,7 @@ public class AgentRunService {
     private AgentRunDto toDto(AgentRun run) {
         return new AgentRunDto(
                 run.getId(),
+                run.getTask(),
                 run.getStatus(),
                 run.getCreatedAt(),
                 run.getTotalLatency(),

@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record AgentRunDto(
         UUID id,
+        String task,
         String status,
         Instant createdAt,
         Long totalLatency,
