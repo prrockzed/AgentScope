@@ -13,7 +13,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Submit a task** to an AI agent from the browser
 - **Watch the trace live** — each step appears in real time as the agent works through it
 - **Inspect any step** — expand it to see the exact prompt sent and response received
-- **Browse past runs** — table of all runs with status, latency, and token count
+- **Browse past runs** — table of all runs with status, latency, token count, and model
 - **View analytics** — latency trends, token usage, success/failure breakdown — all from real data
 - **Replay any run** — re-execute a past run with the same task; navigate live to the new run's trace
 - **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
@@ -145,7 +145,7 @@ PostgreSQL data lives in the `postgres_data` named Docker volume. It survives `s
 `qwen3:4b` is the default. To use a different model:
 
 1. Pull it on the host: `ollama pull <model-name>`
-2. Update `OLLAMA_MODEL` in `docker-compose.yml` under the `runtime` service
+2. Update `OLLAMA_MODEL` in `docker-compose.yml` under both the `runtime` and `backend` services
 3. Restart: `docker compose up`
 
 ---
@@ -169,7 +169,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 
 | Table | What it stores |
 |---|---|
-| `agent_runs` | One row per agent execution — id, task, status, latency, tokens, failure reason |
+| `agent_runs` | One row per agent execution — id, task, status, latency, tokens, failure reason, model |
 | `trace_steps` | One row per step within a run — event type, tool name, prompt, response, latency |
 | `evaluations` | Pass/fail scores per run — score `1.0` = passing, `0.0` = failing |
 | `regression_tests` | Auto-generated test cases from failures — input, expected failure reason, type (`AUTO`/`MANUAL`) |
@@ -226,7 +226,8 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "totalLatency": 4200,
   "totalTokens": 831,
   "replayOf": null,
-  "failureReason": null
+  "failureReason": null,
+  "model": "qwen3:4b"
 }
 ```
 Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`.
@@ -265,7 +266,7 @@ AgentScope/
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V8 Flyway SQL migrations
+│       └── db/migration/        V1–V9 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute endpoint

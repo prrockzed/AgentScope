@@ -141,6 +141,16 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
       {/* Search + filter bar */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
+          {/* Task count */}
+          {!isLoading && (
+            <span
+              className="rounded-md px-3 py-2 text-sm whitespace-nowrap"
+              style={{ ...inputStyle, color: 'var(--text-muted)' }}
+            >
+              Tasks: {filteredRuns.length}
+            </span>
+          )}
+
           {/* Search input */}
           <div className="relative flex-1">
             <Search
@@ -191,6 +201,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
               Clear
             </button>
           )}
+
         </div>
 
         {/* Filter panel */}
@@ -340,7 +351,17 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                       style={{ color: 'var(--text-primary)' }}
                       title={run.task ?? ''}
                     >
-                      {run.task ? (run.task.length > 60 ? run.task.slice(0, 60) + '…' : run.task) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      {run.task ? (
+                        <Link
+                          href={`/runs/${run.id}`}
+                          className="hover:underline"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {run.task.length > 60 ? run.task.slice(0, 60) + '…' : run.task}
+                        </Link>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <RunStatusBadge status={run.status} />
