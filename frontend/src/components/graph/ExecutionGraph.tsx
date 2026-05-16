@@ -70,6 +70,7 @@ function ExecutionGraphInner({ steps }: ExecutionGraphProps) {
       panOnDrag
       zoomOnScroll
       fitView
+      proOptions={{ hideAttribution: true }}
     >
       <Background variant={BackgroundVariant.Dots} color="#1e1e2e" gap={20} />
       <Controls

@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface AgentRunRepository extends JpaRepository<AgentRun, UUID> {
     List<AgentRun> findByTask(String task);
+    List<AgentRun> findAllByOrderByCreatedAtDesc();
 }

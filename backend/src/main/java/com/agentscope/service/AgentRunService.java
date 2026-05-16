@@ -61,7 +61,7 @@ public class AgentRunService {
     }
 
     public List<AgentRunDto> getAllRuns() {
-        return agentRunRepository.findAll().stream()
+        return agentRunRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::toDto)
                 .toList();
     }
