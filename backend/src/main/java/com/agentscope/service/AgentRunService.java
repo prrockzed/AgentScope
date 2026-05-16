@@ -5,6 +5,9 @@ import com.agentscope.dto.CreateRunRequest;
 import com.agentscope.exception.ResourceNotFoundException;
 import com.agentscope.model.AgentRun;
 import com.agentscope.repository.AgentRunRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class AgentRunService {
@@ -25,17 +29,20 @@ public class AgentRunService {
     private final RestTemplate restTemplate;
     private final FailureDetectionService failureDetectionService;
     private final EvaluationService evaluationService;
+    private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
     private String runtimeBaseUrl;
 
     public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate,
                            FailureDetectionService failureDetectionService,
-                           EvaluationService evaluationService) {
+                           EvaluationService evaluationService,
+                           MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
         this.failureDetectionService = failureDetectionService;
         this.evaluationService = evaluationService;
+        this.meterRegistry = meterRegistry;
     }
 
     public AgentRunDto createAndExecuteRun(CreateRunRequest request) {
@@ -128,6 +135,40 @@ public class AgentRunService {
 
         failureDetectionService.analyze(runId);
         evaluationService.onRunComplete(runId);
+        recordMetrics(runId, finalStatus, finalLatency, finalTokens);
+    }
+
+    private void recordMetrics(UUID runId, String status, Long latencyMs, Integer tokens) {
+        Counter.builder("agentscope.runs")
+                .tag("status", status != null ? status : "UNKNOWN")
+                .description("Total completed agent runs by status")
+                .register(meterRegistry)
+                .increment();
+
+        if (latencyMs != null) {
+            Timer.builder("agentscope.run.duration")
+                    .description("Agent run duration")
+                    .register(meterRegistry)
+                    .record(latencyMs, TimeUnit.MILLISECONDS);
+        }
+
+        if (tokens != null) {
+            Counter.builder("agentscope.tokens")
+                    .description("Total LLM tokens consumed")
+                    .register(meterRegistry)
+                    .increment(tokens);
+        }
+
+        if ("FAILED".equals(status)) {
+            agentRunRepository.findById(runId).ifPresent(run -> {
+                String reason = run.getFailureReason() != null ? run.getFailureReason() : "UNKNOWN";
+                Counter.builder("agentscope.failures")
+                        .tag("reason", reason)
+                        .description("Total agent run failures by reason")
+                        .register(meterRegistry)
+                        .increment();
+            });
+        }
     }
 
     private AgentRunDto toDto(AgentRun run) {

@@ -2,6 +2,7 @@ import time
 import uuid
 
 from fastapi import FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
 from app.schemas.requests import ExecuteRequest
@@ -10,6 +11,7 @@ from app.tracing.tracer import Tracer
 from app.workflows.agent_workflow import run_agent
 
 app = FastAPI(title="AgentScope Runtime", version="1.0.0")
+Instrumentator().instrument(app).expose(app)
 
 
 @app.get("/health")
