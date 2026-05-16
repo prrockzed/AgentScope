@@ -17,6 +17,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **View analytics** — latency trends, token usage, success/failure breakdown — all from real data
 - **Replay any run** — re-execute a past run with the same task; navigate live to the new run's trace
 - **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
+- **Failure detection** — every failed run is automatically tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); a red banner, highlighted timeline steps, and a graph node outline surface the failure without manual trace inspection
 
 ---
 
@@ -162,7 +163,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 
 | Table | What it stores |
 |---|---|
-| `agent_runs` | One row per agent execution — id, task, status, latency, tokens |
+| `agent_runs` | One row per agent execution — id, task, status, latency, tokens, failure reason |
 | `trace_steps` | One row per step within a run — event type, tool name, prompt, response, latency |
 | `evaluations` | Pass/fail scores for runs (used in later phases) |
 | `regression_tests` | Auto-generated test cases from failures (used in later phases) |
@@ -211,10 +212,11 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "createdAt": "2025-05-16T10:00:00Z",
   "totalLatency": 4200,
   "totalTokens": 831,
-  "replayOf": null
+  "replayOf": null,
+  "failureReason": null
 }
 ```
-Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`.
+Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`.
 
 ---
 
@@ -241,7 +243,7 @@ AgentScope/
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V5 Flyway SQL migrations
+│       └── db/migration/        V1–V7 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute endpoint
@@ -290,5 +292,5 @@ The LangGraph workflow runs these in sequence: Planner → Tool Selection → To
 | 4 | Visual debugger — React Flow execution graph | Done |
 | — | Infrastructure — Dockerfiles for all services, single `docker compose up --build` | Done |
 | 5 | Replay system — re-run any past task, diff the outputs | Done |
-| 6 | Failure detection — auto-tag and surface failure reasons | Planned |
+| 6 | Failure detection — auto-tag and surface failure reasons | Done |
 | 7 | Autonomous eval generation — auto-create regression tests from failures | Planned |
