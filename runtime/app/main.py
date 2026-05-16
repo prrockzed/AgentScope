@@ -22,8 +22,8 @@ def execute(request: ExecuteRequest):
     if not request.task or not request.task.strip():
         raise HTTPException(status_code=422, detail="task must not be empty")
 
-    run_id = str(uuid.uuid4())
-    tracer = Tracer(run_id=run_id)
+    run_id = request.run_id or str(uuid.uuid4())
+    tracer = Tracer(run_id=run_id, backend_url=settings.backend_url)
     start = time.time()
 
     result = run_agent(
