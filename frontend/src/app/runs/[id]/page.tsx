@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
 import { useReplayRun } from '@/hooks/useReplayRun'
+import { useGenerateEval } from '@/hooks/useGenerateEval'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
@@ -36,6 +37,7 @@ export default function TraceViewerPage({ params }: Props) {
   useTraceWebSocket(id, isRunning ?? false)
 
   const replay = useReplayRun()
+  const generateEvalMutation = useGenerateEval()
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
@@ -84,19 +86,33 @@ export default function TraceViewerPage({ params }: Props) {
                 {isRunning && <LiveIndicator />}
               </div>
 
-              {/* Replay button */}
-              <button
-                disabled={run.status === 'RUNNING' || replay.isPending}
-                onClick={() =>
-                  replay.mutate(run.id, {
-                    onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
-                  })
-                }
-                className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-              >
-                {replay.isPending ? 'Replaying...' : 'Replay Run'}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Generate Eval button — only for failed runs */}
+                {run.status === 'FAILED' && (
+                  <button
+                    disabled={generateEvalMutation.isPending}
+                    onClick={() => generateEvalMutation.mutate(run.id)}
+                    className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#4c0519', color: '#ef4444' }}
+                  >
+                    {generateEvalMutation.isPending ? 'Saving...' : 'Generate Eval'}
+                  </button>
+                )}
+
+                {/* Replay button */}
+                <button
+                  disabled={run.status === 'RUNNING' || replay.isPending}
+                  onClick={() =>
+                    replay.mutate(run.id, {
+                      onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
+                    })
+                  }
+                  className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                >
+                  {replay.isPending ? 'Replaying...' : 'Replay Run'}
+                </button>
+              </div>
             </div>
 
             {run.task && (

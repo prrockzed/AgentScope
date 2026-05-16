@@ -31,3 +31,12 @@ export interface TraceStep {
   status: string
   createdAt: string
 }
+
+export interface RegressionTest {
+  id: string
+  input: string | null
+  expectedFailure: string | null
+  type: string
+  createdAt: string
+  latestStatus: string
+}

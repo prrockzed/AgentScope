@@ -1,4 +1,4 @@
-import type { AgentRun, TraceStep } from '@/types'
+import type { AgentRun, RegressionTest, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -38,4 +38,13 @@ export async function replayRun(id: string): Promise<AgentRun> {
   const res = await fetch(`${BASE_URL}/api/runs/${id}/replay`, { method: 'POST' })
   if (!res.ok) throw new Error('Replay failed')
   return res.json() as Promise<AgentRun>
+}
+
+export async function getRegressionTests(): Promise<RegressionTest[]> {
+  return fetcher<RegressionTest[]>('/api/regression-tests')
+}
+
+export async function generateEval(runId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/runs/${runId}/eval`, { method: 'POST' })
+  if (!res.ok) throw new Error('Generate eval failed')
 }
