@@ -1,12 +1,13 @@
 'use client'
 
-import { use, useMemo } from 'react'
+import { use, useMemo, useState } from 'react'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
 import { TraceTimeline } from '@/components/traces/TraceTimeline'
+import { ExecutionGraph } from '@/components/graph/ExecutionGraph'
 import { LiveIndicator } from '@/components/traces/LiveIndicator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
@@ -28,6 +29,8 @@ export default function TraceViewerPage({ params }: Props) {
 
   useTraceWebSocket(id, isRunning ?? false)
 
+  const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
+
   // Merge persisted + live steps, deduplicate by id, sort by stepNumber
   const allSteps = useMemo(() => {
     const map = new Map<string, TraceStep>()
@@ -44,7 +47,7 @@ export default function TraceViewerPage({ params }: Props) {
   }, [isRunning, clearSteps])
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
+    <div className={`flex flex-col gap-6 ${activeTab === 'graph' ? 'max-w-6xl' : 'max-w-3xl'}`}>
       {/* Run header */}
       <div
         className="rounded-lg p-5 flex flex-col gap-4"
@@ -78,12 +81,34 @@ export default function TraceViewerPage({ params }: Props) {
         ) : null}
       </div>
 
-      {/* Trace timeline */}
-      <TraceTimeline
-        steps={allSteps}
-        isLoading={tracesLoading && allSteps.length === 0}
-        liveStepIds={liveStepIds}
-      />
+      {/* Tab switcher */}
+      <div className="flex gap-2">
+        {(['timeline', 'graph'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-colors"
+            style={
+              activeTab === tab
+                ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+            }
+          >
+            {tab === 'timeline' ? 'Timeline' : 'Graph'}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === 'timeline' ? (
+        <TraceTimeline
+          steps={allSteps}
+          isLoading={tracesLoading && allSteps.length === 0}
+          liveStepIds={liveStepIds}
+        />
+      ) : (
+        <ExecutionGraph steps={allSteps} />
+      )}
     </div>
   )
 }
