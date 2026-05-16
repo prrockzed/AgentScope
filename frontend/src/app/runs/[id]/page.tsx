@@ -113,6 +113,24 @@ export default function TraceViewerPage({ params }: Props) {
         ) : null}
       </div>
 
+      {/* Failure banner */}
+      {run?.status === 'FAILED' && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm flex items-center gap-3"
+          style={{ backgroundColor: '#4c0519', color: '#ef4444', border: '1px solid #7f1d1d' }}
+        >
+          <span className="font-semibold">Run failed</span>
+          {run.failureReason && (
+            <span
+              className="font-mono text-xs px-2 py-0.5 rounded"
+              style={{ backgroundColor: '#7f1d1d' }}
+            >
+              {run.failureReason.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Tab switcher */}
       <div className="flex gap-2">
         {tabs.map((tab) => (

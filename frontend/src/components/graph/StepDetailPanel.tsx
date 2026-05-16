@@ -96,6 +96,18 @@ export function StepDetailPanel({ step, onClose }: StepDetailPanelProps) {
           >
             {/* Meta */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {step.eventType === 'VALIDATION_FAILURE' && step.response && (
+                <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Failure reason:</span>
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: 11,
+                    backgroundColor: '#4c0519', color: '#ef4444',
+                    borderRadius: 4, padding: '1px 6px',
+                  }}>
+                    {step.response.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              )}
               {step.toolName && (
                 <div style={{ fontSize: 12 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Tool: </span>

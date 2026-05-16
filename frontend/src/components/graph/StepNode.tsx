@@ -34,6 +34,7 @@ function StepNodeInner({ data }: { data: StepNodeData }) {
         borderLeft: `3px solid ${style.border}`,
         borderRadius: 8,
         boxShadow: selected ? '0 0 0 2px #7c3aed' : 'none',
+        outline: step.status === 'FAILED' && !selected ? '1px solid #ef444480' : 'none',
         padding: '10px 12px',
         display: 'flex',
         flexDirection: 'column',

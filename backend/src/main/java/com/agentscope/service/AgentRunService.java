@@ -23,13 +23,16 @@ public class AgentRunService {
 
     private final AgentRunRepository agentRunRepository;
     private final RestTemplate restTemplate;
+    private final FailureDetectionService failureDetectionService;
 
     @Value("${runtime.base-url}")
     private String runtimeBaseUrl;
 
-    public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate) {
+    public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate,
+                           FailureDetectionService failureDetectionService) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
+        this.failureDetectionService = failureDetectionService;
     }
 
     public AgentRunDto createAndExecuteRun(CreateRunRequest request) {
@@ -119,6 +122,8 @@ public class AgentRunService {
             run.setTotalTokens(finalTokens);
             agentRunRepository.save(run);
         });
+
+        failureDetectionService.analyze(runId);
     }
 
     private AgentRunDto toDto(AgentRun run) {
@@ -129,7 +134,8 @@ public class AgentRunService {
                 run.getCreatedAt(),
                 run.getTotalLatency(),
                 run.getTotalTokens(),
-                run.getReplayOf()
+                run.getReplayOf(),
+                run.getFailureReason()
         );
     }
 

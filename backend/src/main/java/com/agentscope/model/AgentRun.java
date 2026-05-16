@@ -37,4 +37,7 @@ public class AgentRun {
 
     @Column(name = "replay_of")
     private UUID replayOf;
+
+    @Column(name = "failure_reason")
+    private String failureReason;
 }

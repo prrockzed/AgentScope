@@ -20,7 +20,13 @@ export function TraceStepCard({ step, isNew }: { step: TraceStep; isNew?: boolea
   return (
     <div
       className={`rounded-lg transition-all ${isNew ? 'animate-fade-in' : ''}`}
-      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-custom)' }}
+      style={{
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-custom)',
+        borderLeft: step.status === 'FAILED'
+          ? '3px solid #ef4444'
+          : '1px solid var(--border-custom)',
+      }}
     >
       {/* Header row */}
       <button
