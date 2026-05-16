@@ -14,6 +14,7 @@ export interface AgentRun {
   createdAt: string
   totalLatency: number | null
   totalTokens: number | null
+  replayOf: string | null
 }
 
 export interface TraceStep {

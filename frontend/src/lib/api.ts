@@ -33,3 +33,9 @@ export async function createRun(task: string): Promise<AgentRun> {
   }
   return res.json() as Promise<AgentRun>
 }
+
+export async function replayRun(id: string): Promise<AgentRun> {
+  const res = await fetch(`${BASE_URL}/api/runs/${id}/replay`, { method: 'POST' })
+  if (!res.ok) throw new Error('Replay failed')
+  return res.json() as Promise<AgentRun>
+}

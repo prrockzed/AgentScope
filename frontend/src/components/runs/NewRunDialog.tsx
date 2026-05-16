@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useCreateRun } from '@/hooks/useCreateRun'
 
 export function NewRunDialog() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [task, setTask] = useState('')
   const { mutate, isPending } = useCreateRun()
@@ -21,9 +23,10 @@ export function NewRunDialog() {
   function handleSubmit() {
     if (!task.trim()) return
     mutate(task.trim(), {
-      onSuccess: () => {
+      onSuccess: (newRun) => {
         setOpen(false)
         setTask('')
+        router.push(`/runs/${newRun.id}`)
       },
     })
   }

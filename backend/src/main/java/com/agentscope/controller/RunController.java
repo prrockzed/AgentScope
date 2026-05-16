@@ -34,4 +34,10 @@ public class RunController {
     public AgentRunDto createRun(@RequestBody CreateRunRequest request) {
         return agentRunService.createAndExecuteRun(request);
     }
+
+    @PostMapping("/{id}/replay")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AgentRunDto replayRun(@PathVariable UUID id) {
+        return agentRunService.replayRun(id);
+    }
 }

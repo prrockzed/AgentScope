@@ -42,27 +42,8 @@ public class AgentRunService {
         run.setCreatedAt(Instant.now());
         agentRunRepository.save(run);
 
-        try {
-            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(request.task(), runId.toString());
-            RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
-                    runtimeBaseUrl + "/execute",
-                    runtimeRequest,
-                    RuntimeExecuteResponse.class
-            );
+        startRunThread(runId, request.task(), "run-" + runId);
 
-            if (runtimeResponse != null) {
-                run.setStatus(runtimeResponse.status());
-                run.setTotalLatency(runtimeResponse.total_latency());
-                run.setTotalTokens(runtimeResponse.total_tokens());
-            } else {
-                run.setStatus("FAILED");
-            }
-        } catch (RestClientException e) {
-            log.error("Runtime call failed for run {}: {}", runId, e.getMessage());
-            run.setStatus("FAILED");
-        }
-
-        agentRunRepository.save(run);
         return toDto(run);
     }
 
@@ -78,6 +59,68 @@ public class AgentRunService {
         return toDto(run);
     }
 
+    public AgentRunDto replayRun(UUID originalId) {
+        AgentRun original = agentRunRepository.findById(originalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + originalId));
+
+        UUID newRunId = UUID.randomUUID();
+        AgentRun newRun = new AgentRun();
+        newRun.setId(newRunId);
+        newRun.setTask(original.getTask());
+        newRun.setStatus("RUNNING");
+        newRun.setCreatedAt(Instant.now());
+        newRun.setReplayOf(original.getId());
+        agentRunRepository.save(newRun);
+
+        startRunThread(newRunId, original.getTask(), "replay-" + newRunId);
+
+        return toDto(newRun);
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal helpers
+    // -------------------------------------------------------------------------
+
+    private void startRunThread(UUID runId, String task, String threadName) {
+        Thread thread = new Thread(() -> executeRuntime(runId, task), threadName);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void executeRuntime(UUID runId, String task) {
+        String status = "FAILED";
+        Long latency = null;
+        Integer tokens = null;
+
+        try {
+            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString());
+            RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
+                    runtimeBaseUrl + "/execute",
+                    runtimeRequest,
+                    RuntimeExecuteResponse.class
+            );
+
+            if (runtimeResponse != null) {
+                status = runtimeResponse.status();
+                latency = runtimeResponse.total_latency();
+                tokens = runtimeResponse.total_tokens();
+            }
+        } catch (RestClientException e) {
+            log.error("Runtime call failed for run {}: {}", runId, e.getMessage());
+        }
+
+        final String finalStatus = status;
+        final Long finalLatency = latency;
+        final Integer finalTokens = tokens;
+
+        agentRunRepository.findById(runId).ifPresent(run -> {
+            run.setStatus(finalStatus);
+            run.setTotalLatency(finalLatency);
+            run.setTotalTokens(finalTokens);
+            agentRunRepository.save(run);
+        });
+    }
+
     private AgentRunDto toDto(AgentRun run) {
         return new AgentRunDto(
                 run.getId(),
@@ -85,7 +128,8 @@ public class AgentRunService {
                 run.getStatus(),
                 run.getCreatedAt(),
                 run.getTotalLatency(),
-                run.getTotalTokens()
+                run.getTotalTokens(),
+                run.getReplayOf()
         );
     }
 

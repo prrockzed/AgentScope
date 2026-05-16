@@ -9,5 +9,6 @@ public record AgentRunDto(
         String status,
         Instant createdAt,
         Long totalLatency,
-        Integer totalTokens
+        Integer totalTokens,
+        UUID replayOf
 ) {}

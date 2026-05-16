@@ -1,13 +1,16 @@
 'use client'
 
 import { use, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
+import { useReplayRun } from '@/hooks/useReplayRun'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
 import { TraceTimeline } from '@/components/traces/TraceTimeline'
 import { ExecutionGraph } from '@/components/graph/ExecutionGraph'
+import { DiffView } from '@/components/traces/DiffView'
 import { LiveIndicator } from '@/components/traces/LiveIndicator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
@@ -17,8 +20,11 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
+type Tab = 'timeline' | 'graph' | 'compare'
+
 export default function TraceViewerPage({ params }: Props) {
   const { id } = use(params)
+  const router = useRouter()
   const { data: run, isLoading: runLoading } = useRun(id)
   const isRunning = run?.status === 'RUNNING'
 
@@ -29,7 +35,10 @@ export default function TraceViewerPage({ params }: Props) {
 
   useTraceWebSocket(id, isRunning ?? false)
 
-  const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
+  const replay = useReplayRun()
+
+  const hasCompare = Boolean(run?.replayOf)
+  const [activeTab, setActiveTab] = useState<Tab>('timeline')
 
   // Merge persisted + live steps, deduplicate by id, sort by stepNumber
   const allSteps = useMemo(() => {
@@ -46,8 +55,14 @@ export default function TraceViewerPage({ params }: Props) {
     if (!isRunning) clearSteps()
   }, [isRunning, clearSteps])
 
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'timeline', label: 'Timeline' },
+    { key: 'graph', label: 'Graph' },
+    ...(hasCompare ? [{ key: 'compare' as Tab, label: 'Compare' }] : []),
+  ]
+
   return (
-    <div className={`flex flex-col gap-6 ${activeTab === 'graph' ? 'max-w-6xl' : 'max-w-3xl'}`}>
+    <div className={`flex flex-col gap-6 ${activeTab === 'graph' ? 'max-w-6xl' : 'max-w-5xl'}`}>
       {/* Run header */}
       <div
         className="rounded-lg p-5 flex flex-col gap-4"
@@ -60,13 +75,30 @@ export default function TraceViewerPage({ params }: Props) {
           </div>
         ) : run ? (
           <>
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                {truncateId(run.id)}
-              </span>
-              <RunStatusBadge status={run.status} />
-              {isRunning && <LiveIndicator />}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {truncateId(run.id)}
+                </span>
+                <RunStatusBadge status={run.status} />
+                {isRunning && <LiveIndicator />}
+              </div>
+
+              {/* Replay button */}
+              <button
+                disabled={run.status === 'RUNNING' || replay.isPending}
+                onClick={() =>
+                  replay.mutate(run.id, {
+                    onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
+                  })
+                }
+                className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+              >
+                {replay.isPending ? 'Replaying...' : 'Replay Run'}
+              </button>
             </div>
+
             {run.task && (
               <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {run.task}
@@ -83,31 +115,33 @@ export default function TraceViewerPage({ params }: Props) {
 
       {/* Tab switcher */}
       <div className="flex gap-2">
-        {(['timeline', 'graph'] as const).map((tab) => (
+        {tabs.map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
             className="rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-colors"
             style={
-              activeTab === tab
+              activeTab === tab.key
                 ? { backgroundColor: 'var(--purple-600)', color: 'white' }
                 : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
             }
           >
-            {tab === 'timeline' ? 'Timeline' : 'Graph'}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      {activeTab === 'timeline' ? (
+      {activeTab === 'timeline' && (
         <TraceTimeline
           steps={allSteps}
           isLoading={tracesLoading && allSteps.length === 0}
           liveStepIds={liveStepIds}
         />
-      ) : (
-        <ExecutionGraph steps={allSteps} />
+      )}
+      {activeTab === 'graph' && <ExecutionGraph steps={allSteps} />}
+      {activeTab === 'compare' && run?.replayOf && (
+        <DiffView originalRunId={run.replayOf} replayRunId={run.id} />
       )}
     </div>
   )

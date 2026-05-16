@@ -34,4 +34,7 @@ public class AgentRun {
 
     @Column(columnDefinition = "TEXT")
     private String task;
+
+    @Column(name = "replay_of")
+    private UUID replayOf;
 }

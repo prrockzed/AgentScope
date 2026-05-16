@@ -15,6 +15,8 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Inspect any step** — expand it to see the exact prompt sent and response received
 - **Browse past runs** — table of all runs with status, latency, and token count
 - **View analytics** — latency trends, token usage, success/failure breakdown — all from real data
+- **Replay any run** — re-execute a past run with the same task; navigate live to the new run's trace
+- **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
 
 ---
 
@@ -190,6 +192,7 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/runs` | List all agent runs |
 | `GET` | `/api/runs/{id}` | Get a single run |
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
+| `POST` | `/api/runs/{id}/replay` | Re-run a past task; returns new run linked to original |
 | `GET` | `/api/runs/{id}/traces` | Get all trace steps for a run |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
@@ -207,9 +210,11 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "status": "SUCCESS",
   "createdAt": "2025-05-16T10:00:00Z",
   "totalLatency": 4200,
-  "totalTokens": 831
+  "totalTokens": 831,
+  "replayOf": null
 }
 ```
+Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`.
 
 ---
 
@@ -284,6 +289,6 @@ The LangGraph workflow runs these in sequence: Planner → Tool Selection → To
 | 3 | Next.js frontend — runs table, trace viewer, analytics dashboard | Done |
 | 4 | Visual debugger — React Flow execution graph | Done |
 | — | Infrastructure — Dockerfiles for all services, single `docker compose up --build` | Done |
-| 5 | Replay system — re-run any past task, diff the outputs | Next |
+| 5 | Replay system — re-run any past task, diff the outputs | Done |
 | 6 | Failure detection — auto-tag and surface failure reasons | Planned |
 | 7 | Autonomous eval generation — auto-create regression tests from failures | Planned |
