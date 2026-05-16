@@ -48,7 +48,7 @@ function activeFilterCount(f: Filters) {
 function SkeletonRow() {
   return (
     <TableRow style={{ borderBottom: '1px solid var(--border-custom)' }}>
-      {[...Array(6)].map((_, i) => (
+      {[...Array(7)].map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-full rounded" style={{ backgroundColor: 'var(--bg-elevated)' }} />
         </TableCell>
@@ -306,7 +306,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
           <Table>
             <TableHeader>
               <TableRow style={{ borderBottom: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}>
-                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', ''].map((h) => (
+                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', ''].map((h) => (
                   <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </TableHead>
@@ -318,7 +318,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
               ) : filteredRuns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                  <TableCell colSpan={8} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                     {hasAnyFilter ? 'No runs match your search or filters.' : 'No runs yet. Submit your first task above.'}
                   </TableCell>
                 </TableRow>
@@ -353,6 +353,9 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                     </TableCell>
                     <TableCell className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
                       {run.totalTokens ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
+                      {run.model ?? '—'}
                     </TableCell>
                     <TableCell>
                       <Link

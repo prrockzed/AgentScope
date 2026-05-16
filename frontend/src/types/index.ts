@@ -16,6 +16,7 @@ export interface AgentRun {
   totalTokens: number | null
   replayOf: string | null
   failureReason: string | null
+  model: string | null
 }
 
 export interface TraceStep {

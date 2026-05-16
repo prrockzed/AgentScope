@@ -34,6 +34,9 @@ public class AgentRunService {
     @Value("${runtime.base-url}")
     private String runtimeBaseUrl;
 
+    @Value("${ollama.model:qwen3:4b}")
+    private String ollamaModel;
+
     public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate,
                            FailureDetectionService failureDetectionService,
                            EvaluationService evaluationService,
@@ -53,6 +56,7 @@ public class AgentRunService {
         run.setTask(request.task());
         run.setStatus("RUNNING");
         run.setCreatedAt(Instant.now());
+        run.setModel(ollamaModel);
         agentRunRepository.save(run);
 
         startRunThread(runId, request.task(), "run-" + runId);
@@ -83,6 +87,7 @@ public class AgentRunService {
         newRun.setStatus("RUNNING");
         newRun.setCreatedAt(Instant.now());
         newRun.setReplayOf(original.getId());
+        newRun.setModel(ollamaModel);
         agentRunRepository.save(newRun);
 
         startRunThread(newRunId, original.getTask(), "replay-" + newRunId);
@@ -180,7 +185,8 @@ public class AgentRunService {
                 run.getTotalLatency(),
                 run.getTotalTokens(),
                 run.getReplayOf(),
-                run.getFailureReason()
+                run.getFailureReason(),
+                run.getModel()
         );
     }
 

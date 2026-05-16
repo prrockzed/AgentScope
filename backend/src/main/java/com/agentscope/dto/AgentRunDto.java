@@ -11,5 +11,6 @@ public record AgentRunDto(
         Long totalLatency,
         Integer totalTokens,
         UUID replayOf,
-        String failureReason
+        String failureReason,
+        String model
 ) {}

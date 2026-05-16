@@ -25,11 +25,12 @@ services:
       DB_USERNAME: agentscope
       DB_PASSWORD: agentscope
       RUNTIME_BASE_URL: http://runtime:8000
+      OLLAMA_MODEL: qwen3:4b
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 6

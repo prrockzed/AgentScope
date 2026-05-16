@@ -40,4 +40,7 @@ public class AgentRun {
 
     @Column(name = "failure_reason")
     private String failureReason;
+
+    @Column
+    private String model;
 }
