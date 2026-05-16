@@ -8,7 +8,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 
 ---
 
-## What It Does (Today)
+## What It Does
 
 - **Submit a task** to an AI agent from the browser
 - **Watch the trace live** — each step appears in real time as the agent works through it
@@ -19,6 +19,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
 - **Failure detection** — every failed run is automatically tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); a red banner, highlighted timeline steps, and a graph node outline surface the failure without manual trace inspection
 - **Autonomous eval generation** — every failed run automatically creates a regression test entry and a failing evaluation; when the same task passes later, the evaluation flips to passing; the Evaluations page shows all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status chips; a "Generate Eval" button on any failed run's trace viewer lets you trigger this manually
+- **Prometheus + Grafana monitoring** — every completed run emits metrics (run count by status, latency histogram, token counter, failure reason counter) to Prometheus via Spring Boot Actuator and the FastAPI `/metrics` endpoint; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across three rows: Summary stats, Throughput & Latency time series, and Token Usage & Failure Reasons
 
 ---
 
@@ -66,7 +67,8 @@ PostgreSQL  ◄─────────────────────�
 | **Database** | PostgreSQL 16 |
 | **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
 | **LLM** | Ollama — `qwen3:4b` (default, configurable) |
-| **Infrastructure** | Docker Compose (all four services containerised) |
+| **Infrastructure** | Docker Compose (all services containerised) |
+| **Monitoring** | Prometheus 2.54, Grafana 11.2, Micrometer (Spring Boot), prometheus-fastapi-instrumentator (FastAPI) |
 
 ---
 
@@ -98,19 +100,21 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 ollama serve
 ```
 
-Java, Python, and Node.js are **not required** to run the project — they are only needed if you want to run services locally outside Docker. See [docs/SETUP.md](docs/SETUP.md) for local dev instructions.
+Java, Python, and Node.js are **not required** to run the project — everything runs inside Docker.
 
 ---
 
 ## Running the Project
 
-A single command builds all images and starts all four services:
+A single command builds all images and starts all services:
 
 ```bash
 docker compose up --build
 ```
 
 Open **http://localhost:3000** — you'll land on the Runs page.
+
+Prometheus scrapes metrics at **http://localhost:9090** and Grafana serves the live dashboard at **http://localhost:3001** (login: `admin` / `admin` → Dashboards → AgentScope).
 
 On subsequent runs (no code changes), skip the rebuild:
 ```bash
@@ -142,8 +146,6 @@ PostgreSQL data lives in the `postgres_data` named Docker volume. It survives `s
 1. Pull it on the host: `ollama pull <model-name>`
 2. Update `OLLAMA_MODEL` in `docker-compose.yml` under the `runtime` service
 3. Restart: `docker compose up`
-
-See [docs/SETUP.md](docs/SETUP.md#changing-the-ollama-model) for the full model-switching guide including local dev.
 
 ---
 
@@ -229,7 +231,16 @@ Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayO
 
 ```
 AgentScope/
-├── docker-compose.yml           All four services (postgres, backend, runtime, frontend)
+├── docker-compose.yml           All services (postgres, backend, runtime, frontend, prometheus, grafana)
+├── infra/
+│   ├── prometheus/
+│   │   └── prometheus.yml       Scrape config — targets backend + runtime
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/     Auto-provision Prometheus datasource
+│       │   └── dashboards/      Dashboard provider config
+│       └── dashboards/
+│           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
 │       ├── app/                 Pages: /runs, /runs/[id], /analytics, /evaluations
@@ -284,18 +295,9 @@ The LangGraph workflow runs these in sequence: Planner → Tool Selection → To
 | Runtime (FastAPI) | 8000 |
 | Database (PostgreSQL) | 5432 |
 | Ollama | 11434 |
+| Prometheus | 9090 |
+| Grafana | 3001 |
 
 ---
 
-## Roadmap
-
-| Phase | What | Status |
-|---|---|---|
-| 1 | FastAPI runtime — LangGraph agent, tools, trace emission | Done |
-| 2 | Spring Boot backend — REST API, PostgreSQL persistence, WebSocket | Done |
-| 3 | Next.js frontend — runs table, trace viewer, analytics dashboard | Done |
-| 4 | Visual debugger — React Flow execution graph | Done |
-| — | Infrastructure — Dockerfiles for all services, single `docker compose up --build` | Done |
-| 5 | Replay system — re-run any past task, diff the outputs | Done |
-| 6 | Failure detection — auto-tag and surface failure reasons | Done |
-| 7 | Autonomous eval generation — auto-create regression tests, Evaluations page, Generate Eval button | Done |
+Built to make AI agent debugging feel as natural as debugging any other software — one `docker compose up --build` away.
