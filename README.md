@@ -19,6 +19,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
 - **Failure detection** — every failed run is automatically tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); a red banner, highlighted timeline steps, and a graph node outline surface the failure without manual trace inspection
 - **Autonomous eval generation** — every failed run automatically creates a regression test entry and a failing evaluation; when the same task passes later, the evaluation flips to passing; the Evaluations page shows all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status chips; a "Generate Eval" button on any failed run's trace viewer lets you trigger this manually
+- **Saved Runs** — bookmark any completed run with a "Save Run" button on its trace viewer; saved runs appear in a dedicated Saved Runs page (sidebar) showing task, status, latency, and when it was saved; from there you can jump back to the original trace, re-execute the task, or unsave the run; saving is a lightweight reference — no data is copied
 - **Prometheus + Grafana monitoring** — every completed run emits metrics (run count by status, latency histogram, token counter, failure reason counter) to Prometheus via Spring Boot Actuator and the FastAPI `/metrics` endpoint; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across three rows: Summary stats, Throughput & Latency time series, and Token Usage & Failure Reasons
 
 ---
@@ -172,6 +173,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `trace_steps` | One row per step within a run — event type, tool name, prompt, response, latency |
 | `evaluations` | Pass/fail scores per run — score `1.0` = passing, `0.0` = failing |
 | `regression_tests` | Auto-generated test cases from failures — input, expected failure reason, type (`AUTO`/`MANUAL`) |
+| `saved_runs` | Bookmarked run references — pointer to `agent_runs`, timestamp of when it was saved |
 
 **Inspect the database directly:**
 ```bash
@@ -200,6 +202,10 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
 | `POST` | `/api/runs/{id}/replay` | Re-run a past task; returns new run linked to original |
 | `GET` | `/api/runs/{id}/traces` | Get all trace steps for a run |
+| `GET` | `/api/runs/{id}/saved` | Check whether a run is saved — returns `{"saved": true/false}` |
+| `POST` | `/api/runs/{id}/save` | Save a run — idempotent; returns `SavedRunDto` (201) |
+| `DELETE` | `/api/runs/{id}/save` | Unsave a run (204) |
+| `GET` | `/api/saved-runs` | List all saved runs ordered newest-first |
 | `GET` | `/api/regression-tests` | List all regression tests with derived `latestStatus` |
 | `POST` | `/api/runs/{id}/eval` | Manually trigger eval generation for a failed run |
 
@@ -243,7 +249,7 @@ AgentScope/
 │           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /analytics, /evaluations
+│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations
 │       ├── components/          UI components (runs, traces, analytics, evaluations, layout)
 │       ├── hooks/               TanStack Query hooks + WebSocket hook + eval hooks
 │       ├── store/               Zustand store for live trace state
@@ -251,15 +257,15 @@ AgentScope/
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, EvaluationController)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest)
-│       ├── dto/                 Data transfer objects (AgentRunDto, RegressionTestDto, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, ...)
+│       ├── controller/          REST endpoints (RunController, TraceController, EvaluationController, SavedRunController)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, SavedRunService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun)
+│       ├── dto/                 Data transfer objects (AgentRunDto, RegressionTestDto, SavedRunDto, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, SavedRunRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V7 Flyway SQL migrations
+│       └── db/migration/        V1–V8 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute endpoint
