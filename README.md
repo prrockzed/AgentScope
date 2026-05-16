@@ -27,7 +27,7 @@ Browser (Next.js)
      │
      │  REST (runs, traces)       WebSocket (live trace stream)
      ▼
-Spring Boot Backend   ──────────────────────────────────────────────┐
+Spring Boot Backend   ───────────────────────────────────────────────┐
      │                                                               │
      │  REST (POST /execute)                                         │
      ▼                                                               │
@@ -58,92 +58,86 @@ PostgreSQL  ◄─────────────────────�
 | **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, Zustand, Recharts |
 | **Backend** | Java 21, Spring Boot 3.5, JPA, Flyway, WebSocket |
 | **Database** | PostgreSQL 16 |
-| **AI Runtime** | Python 3.11, FastAPI, LangGraph, Ollama (llama3) |
-| **Infrastructure** | Docker Compose |
+| **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
+| **LLM** | Ollama — `qwen3:4b` (default, configurable) |
+| **Infrastructure** | Docker Compose (all four services containerised) |
 
 ---
 
 ## Prerequisites
 
-Install these once:
+**Required on your machine:**
 
-| Tool | Version | Notes |
-|---|---|---|
-| Docker | latest | For running PostgreSQL |
-| Java | 21+ | `sdk install java 21-tem` via SDKMAN, or distro package |
-| Python | 3.11+ | `pyenv install 3.11` or distro package |
-| Node.js | 20+ | `nvm install 20` or from nodejs.org |
-| Ollama | latest | `curl -fsSL https://ollama.com/install.sh \| sh` (Linux) |
+| Tool | Install |
+|---|---|
+| Docker + Docker Compose | [docs.docker.com/get-docker](https://docs.docker.com/get-docker) |
+| Ollama | See below |
 
-After installing Ollama, pull the model (one-time, ~4 GB):
+**Ollama install (one-time):**
+
+| OS | Command |
+|---|---|
+| Linux | `curl -fsSL https://ollama.com/install.sh \| sh` |
+| macOS | Download from [ollama.com](https://ollama.com) or `brew install ollama` |
+| Windows | Download installer from [ollama.com](https://ollama.com) |
+
+**Pull the model and start Ollama (one-time):**
 ```bash
-ollama pull llama3
+ollama pull qwen3:4b
+
+# Linux: bind to all interfaces so Docker containers can reach it
+OLLAMA_HOST=0.0.0.0 ollama serve
+
+# macOS / Windows: Docker Desktop handles host routing automatically
+ollama serve
 ```
 
----
-
-## First-Time Setup
-
-### 1. Install backend dependencies
-The Gradle wrapper handles Java dependencies automatically — nothing to install manually.
-
-### 2. Install Python dependencies
-```bash
-cd runtime
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-```
-
-### 3. Install frontend dependencies
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-That's it. The database is handled by Docker and migrations run automatically.
+Java, Python, and Node.js are **not required** to run the project — they are only needed if you want to run services locally outside Docker. See [docs/SETUP.md](docs/SETUP.md) for local dev instructions.
 
 ---
 
 ## Running the Project
 
-You need 4 terminals (or a terminal multiplexer like tmux).
+A single command builds all images and starts all four services:
 
-**Terminal 1 — Database**
 ```bash
-docker compose up -d
-```
-PostgreSQL starts on port 5432. Check it with `docker compose ps` — wait until status is `healthy`.
-
-**Terminal 2 — Spring Boot Backend**
-```bash
-cd backend
-./gradlew bootRun
-```
-On first start, Flyway creates all database tables automatically. Ready when you see `Started AgentScopeApplication`.
-
-**Terminal 3 — Python Runtime**
-```bash
-cd runtime
-source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-Ready when you see `Application startup complete`.
-
-**Terminal 4 — Ollama** (skip if Ollama is already running as a system service)
-```bash
-ollama serve
-```
-
-**Terminal 5 — Frontend**
-```bash
-cd frontend
-npm run dev
+docker compose up --build
 ```
 
 Open **http://localhost:3000** — you'll land on the Runs page.
+
+On subsequent runs (no code changes), skip the rebuild:
+```bash
+docker compose up
+```
+
+### Stopping and taking down
+
+```bash
+# Stop all containers — frees all ports, data is preserved
+docker compose stop
+
+# Restart stopped containers (no rebuild)
+docker compose start
+
+# Remove containers entirely — data is still preserved
+docker compose down
+
+# Remove containers AND wipe all data (PostgreSQL volume deleted)
+docker compose down -v
+```
+
+PostgreSQL data lives in the `postgres_data` named Docker volume. It survives `stop`, `start`, and `down`. Only `down -v` deletes it.
+
+### Changing the Ollama model
+
+`qwen3:4b` is the default. To use a different model:
+
+1. Pull it on the host: `ollama pull <model-name>`
+2. Update `OLLAMA_MODEL` in `docker-compose.yml` under the `runtime` service
+3. Restart: `docker compose up`
+
+See [docs/SETUP.md](docs/SETUP.md#changing-the-ollama-model) for the full model-switching guide including local dev.
 
 ---
 
@@ -223,7 +217,7 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
 
 ```
 AgentScope/
-├── docker-compose.yml           PostgreSQL container
+├── docker-compose.yml           All four services (postgres, backend, runtime, frontend)
 ├── frontend/                    Next.js dashboard
 │   └── src/
 │       ├── app/                 Pages: /runs, /runs/[id], /analytics
@@ -288,7 +282,8 @@ The LangGraph workflow runs these in sequence: Planner → Tool Selection → To
 | 1 | FastAPI runtime — LangGraph agent, tools, trace emission | Done |
 | 2 | Spring Boot backend — REST API, PostgreSQL persistence, WebSocket | Done |
 | 3 | Next.js frontend — runs table, trace viewer, analytics dashboard | Done |
-| 4 | Visual debugger — React Flow execution graph | Planned |
-| 5 | Replay system — re-run any past task, diff the outputs | Planned |
+| 4 | Visual debugger — React Flow execution graph | Done |
+| — | Infrastructure — Dockerfiles for all services, single `docker compose up --build` | Done |
+| 5 | Replay system — re-run any past task, diff the outputs | Next |
 | 6 | Failure detection — auto-tag and surface failure reasons | Planned |
 | 7 | Autonomous eval generation — auto-create regression tests from failures | Planned |
