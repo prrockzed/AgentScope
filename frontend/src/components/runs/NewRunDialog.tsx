@@ -137,7 +137,7 @@ export function NewRunDialog() {
 
                 {dropdownOpen && (
                   <div
-                    className="absolute right-0 z-50 mt-1 w-72 rounded-md py-1 shadow-lg"
+                    className="absolute right-0 z-50 mt-1 w-72 rounded-md py-1 shadow-lg max-h-70 overflow-y-auto"
                     style={{
                       backgroundColor: 'var(--bg-surface)',
                       border: '1px solid var(--border-custom)',

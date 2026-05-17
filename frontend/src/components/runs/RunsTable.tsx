@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RunStatusBadge } from './RunStatusBadge'
-import { formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
+import { formatAgentType, formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
 import type { AgentRun, RunStatus } from '@/types'
 
 const PAGE_SIZES = [10, 20, 50]
@@ -22,6 +22,8 @@ const STATUS_OPTIONS: RunStatus[] = ['RUNNING', 'SUCCESS', 'FAILED']
 
 interface Filters {
   status: RunStatus | ''
+  agent: string
+  model: string
   createdFrom: string
   createdTo: string
   latencyMin: string
@@ -32,6 +34,8 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = {
   status: '',
+  agent: '',
+  model: '',
   createdFrom: '',
   createdTo: '',
   latencyMin: '',
@@ -41,16 +45,8 @@ const EMPTY_FILTERS: Filters = {
 }
 
 function activeFilterCount(f: Filters) {
-  return [f.status, f.createdFrom, f.createdTo, f.latencyMin, f.latencyMax, f.tokensMin, f.tokensMax]
+  return [f.status, f.agent, f.model, f.createdFrom, f.createdTo, f.latencyMin, f.latencyMax, f.tokensMin, f.tokensMax]
     .filter(Boolean).length
-}
-
-function formatAgentType(agentType: string | null): string {
-  if (!agentType) return '—'
-  return agentType
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
 }
 
 function SkeletonRow() {
@@ -85,12 +81,24 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
 
+  const uniqueAgents = useMemo(
+    () => [...new Set((runs ?? []).map((r) => r.agentType).filter(Boolean))] as string[],
+    [runs],
+  )
+
+  const uniqueModels = useMemo(
+    () => [...new Set((runs ?? []).map((r) => r.model).filter(Boolean))] as string[],
+    [runs],
+  )
+
   const filteredRuns = useMemo(() => {
     if (!runs) return []
     const q = search.trim().toLowerCase()
     return runs.filter((run) => {
       if (q && !run.task?.toLowerCase().includes(q)) return false
       if (filters.status && run.status !== filters.status) return false
+      if (filters.agent && run.agentType !== filters.agent) return false
+      if (filters.model && run.model !== filters.model) return false
       if (filters.createdFrom && new Date(run.createdAt) < new Date(filters.createdFrom)) return false
       if (filters.createdTo) {
         const to = new Date(filters.createdTo)
@@ -312,6 +320,52 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 />
               </div>
             </div>
+
+            {/* Agent */}
+            {uniqueAgents.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Agent</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {uniqueAgents.map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => setFilter('agent', filters.agent === a ? '' : a)}
+                      className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                      style={
+                        filters.agent === a
+                          ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                          : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                      }
+                    >
+                      {formatAgentType(a)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Model */}
+            {uniqueModels.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Model</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {uniqueModels.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setFilter('model', filters.model === m ? '' : m)}
+                      className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                      style={
+                        filters.model === m
+                          ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                          : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                      }
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -408,7 +462,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
         {/* Pagination */}
         {!isLoading && filteredRuns.length > 0 && (
           <div
-            className="flex items-center justify-between px-4 py-3 rounded-b-lg"
+            className="flex items-center justify-between px-2 py-2 rounded-b-lg"
             style={{ border: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}
           >
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>

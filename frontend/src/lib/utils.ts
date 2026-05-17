@@ -28,3 +28,11 @@ export function formatRelativeTime(isoString: string): string {
 export function truncateId(id: string): string {
   return id.slice(0, 8) + '…'
 }
+
+export function formatAgentType(agentType: string | null | undefined): string {
+  if (!agentType) return '—'
+  return agentType
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}

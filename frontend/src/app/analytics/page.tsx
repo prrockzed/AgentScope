@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { useRuns } from '@/hooks/useRuns'
-import { formatDuration } from '@/lib/utils'
+import { formatAgentType, formatDuration } from '@/lib/utils'
 import { StatCard } from '@/components/analytics/StatCard'
 import { LatencyChart } from '@/components/analytics/LatencyChart'
 import { TokenUsageChart } from '@/components/analytics/TokenUsageChart'
@@ -15,6 +15,8 @@ const STATUS_OPTIONS: RunStatus[] = ['RUNNING', 'SUCCESS', 'FAILED']
 
 interface Filters {
   status: RunStatus | ''
+  agent: string
+  model: string
   createdFrom: string
   createdTo: string
   latencyMin: string
@@ -25,6 +27,8 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = {
   status: '',
+  agent: '',
+  model: '',
   createdFrom: '',
   createdTo: '',
   latencyMin: '',
@@ -40,7 +44,7 @@ const inputStyle = {
 }
 
 function activeFilterCount(f: Filters) {
-  return [f.status, f.createdFrom, f.createdTo, f.latencyMin, f.latencyMax, f.tokensMin, f.tokensMax]
+  return [f.status, f.agent, f.model, f.createdFrom, f.createdTo, f.latencyMin, f.latencyMax, f.tokensMin, f.tokensMax]
     .filter(Boolean).length
 }
 
@@ -52,10 +56,22 @@ export default function AnalyticsPage() {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
 
+  const uniqueAgents = useMemo(
+    () => [...new Set((runs ?? []).map((r) => r.agentType).filter(Boolean))] as string[],
+    [runs],
+  )
+
+  const uniqueModels = useMemo(
+    () => [...new Set((runs ?? []).map((r) => r.model).filter(Boolean))] as string[],
+    [runs],
+  )
+
   const filteredRuns = useMemo(() => {
     if (!runs) return []
     return runs.filter((run) => {
       if (filters.status && run.status !== filters.status) return false
+      if (filters.agent && run.agentType !== filters.agent) return false
+      if (filters.model && run.model !== filters.model) return false
       if (filters.createdFrom && new Date(run.createdAt) < new Date(filters.createdFrom)) return false
       if (filters.createdTo) {
         const to = new Date(filters.createdTo)
@@ -226,6 +242,52 @@ export default function AnalyticsPage() {
             />
           </div>
         </div>
+
+        {/* Agent */}
+        {uniqueAgents.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Agent</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {uniqueAgents.map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setFilter('agent', filters.agent === a ? '' : a)}
+                  className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                  style={
+                    filters.agent === a
+                      ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                      : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                  }
+                >
+                  {formatAgentType(a)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Model */}
+        {uniqueModels.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Model</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {uniqueModels.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setFilter('model', filters.model === m ? '' : m)}
+                  className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                  style={
+                    filters.model === m
+                      ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                      : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                  }
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Empty filtered state */}
