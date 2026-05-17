@@ -11,6 +11,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 ## Features
 
 - **Multi-agent support** — choose from 5 built-in agents (Tool Agent, Direct Answer, Chain of Thought, Summariser, Critic Agent); set a default in Settings or pick a different one per run with the "Run as…" button; each run records which agent executed it
+- **Model selection** — choose which Ollama model to use per run from a curated list (6 models); set a default in Settings or override it per run with the "Model ▾" button in the New Run dialog; models not yet pulled from Ollama are shown with a "not pulled" badge; the model used is stored with every run
 - **Live trace viewer** — submit a task and watch every step appear in real time; each step shows event type, tool name, latency, token count, and full prompt/response
 - **Step inspection** — expand any trace step to read the exact prompt sent to the LLM and the exact response received
 - **Run history** — searchable, filterable table of all runs with status, latency, token count, model, and agent columns; filter by status, date range, latency, or token count
@@ -67,7 +68,7 @@ PostgreSQL  ◄─────────────────────�
 | **Backend** | Java 21, Spring Boot 3.5, JPA, Flyway, WebSocket |
 | **Database** | PostgreSQL 16 |
 | **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
-| **LLM** | Ollama — `qwen3:4b` (default, configurable) |
+| **LLM** | Ollama — model chosen per run from a curated list; default persisted in browser localStorage |
 | **Infrastructure** | Docker Compose (all services containerised) |
 | **Monitoring** | Prometheus 2.54, Grafana 11.2, Micrometer (Spring Boot), prometheus-fastapi-instrumentator (FastAPI) |
 
@@ -90,8 +91,9 @@ PostgreSQL  ◄─────────────────────�
 | macOS | Download from [ollama.com](https://ollama.com) or `brew install ollama` |
 | Windows | Download installer from [ollama.com](https://ollama.com) |
 
-**Pull the model and start Ollama (one-time):**
+**Pull at least one model and start Ollama (one-time):**
 ```bash
+# Pull any model(s) from the supported list — qwen3:4b is a good starting point
 ollama pull qwen3:4b
 
 # Linux: bind to all interfaces so Docker containers can reach it
@@ -140,13 +142,26 @@ docker compose down -v
 
 PostgreSQL data lives in the `postgres_data` named Docker volume. It survives `stop`, `start`, and `down`. Only `down -v` deletes it.
 
-### Changing the Ollama model
+### Supported models
 
-`qwen3:4b` is the default. To use a different model:
+The model is chosen in the UI — no env vars or restarts needed. Six models are available out of the box:
 
-1. Pull it on the host: `ollama pull <model-name>`
-2. Update `OLLAMA_MODEL` in `docker-compose.yml` under both the `runtime` and `backend` services
-3. Restart: `docker compose up`
+| ID | Name | Description |
+|---|---|---|
+| `tinyllama:latest` | TinyLlama | Ultra-light model for quick prototyping |
+| `qwen3:4b` | Qwen3 4B | Fast, balanced — good default for most tasks |
+| `qwen3:8b` | Qwen3 8B | Larger Qwen3; better reasoning, slower |
+| `llama3.2:3b` | Llama 3.2 3B | Meta's compact Llama — very fast |
+| `llama3.1:8b` | Llama 3.1 8B | Meta's capable 8B Llama |
+| `mistral:7b` | Mistral 7B | Strong general-purpose model |
+
+**How model selection works:**
+
+- **Default:** go to `/settings` → Default Model section → click a model → "Set as Default". The choice is saved in browser localStorage.
+- **Per run:** open the New Run dialog → click **Model ▾** → pick any model. This overrides the default for that run only.
+- **Availability:** `GET /api/models` queries Ollama in real time. Models that have not been pulled yet show a `not pulled` badge in the dropdown and the Settings page and cannot be selected.
+- **To add a model:** pull it with `ollama pull <id>` and add an entry to `runtime/app/models.py`. No service restart is needed for availability to update (the check runs on every request).
+- **To add it permanently to the list:** edit `SUPPORTED_MODELS` in `runtime/app/models.py` — that is the only file to change.
 
 ---
 
@@ -198,6 +213,7 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/agents` | List all registered agents (id, name, description) |
+| `GET` | `/api/models` | List all supported models with live `available` flag (proxied from runtime → Ollama) |
 | `GET` | `/api/runs` | List all agent runs |
 | `GET` | `/api/runs/{id}` | Get a single run |
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
@@ -214,9 +230,9 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
 
 **POST /api/runs request body:**
 ```json
-{ "task": "Summarize https://example.com", "agentType": "summariser" }
+{ "task": "Summarize https://example.com", "agentType": "summariser", "model": "qwen3:4b" }
 ```
-`agentType` is optional and defaults to `"tool_agent"`.
+`agentType` is optional and defaults to `"tool_agent"`. `model` is required — the frontend always sends it from the user's selection.
 
 **AgentRun response shape:**
 ```json
@@ -255,16 +271,16 @@ AgentScope/
 │   └── src/
 │       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations
 │       ├── components/          UI components (runs, traces, analytics, evaluations, layout)
-│       ├── hooks/               TanStack Query hooks + WebSocket hook + eval hooks
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useDefaultAgent, useDefaultModel, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, EvaluationController, SavedRunController)
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, ...)
 │       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, SavedRunService)
 │       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun)
-│       ├── dto/                 Data transfer objects (AgentRunDto, RegressionTestDto, SavedRunDto, ...)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, ...)
 │       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, SavedRunRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
@@ -272,7 +288,8 @@ AgentScope/
 │       └── db/migration/        V1–V9 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
-        ├── main.py              POST /execute + GET /agents endpoints
+        ├── main.py              POST /execute, GET /agents, GET /models endpoints
+        ├── models.py            SUPPORTED_MODELS catalogue — the only file to edit when adding/removing models
         ├── agents/              Agent package
         │   ├── __init__.py      Entry point — public API + triggers all registrations
         │   ├── registry.py      AgentDefinition dataclass + REGISTRY dict
