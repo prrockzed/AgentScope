@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, AlertTriangle, Bookmark, FlaskConical } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, FlaskConical, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -63,6 +63,30 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Settings */}
+      <div className="p-3" style={{ borderTop: '1px solid var(--border-custom)' }}>
+        {(() => {
+          const active = pathname.startsWith('/settings')
+          return (
+            <Link
+              href="/settings"
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                active ? 'text-white' : 'hover:text-white',
+              )}
+              style={
+                active
+                  ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                  : { color: 'var(--text-muted)' }
+              }
+            >
+              <Settings size={16} />
+              Settings
+            </Link>
+          )
+        })()}
+      </div>
     </aside>
   )
 }

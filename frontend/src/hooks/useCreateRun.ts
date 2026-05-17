@@ -6,7 +6,8 @@ import { createRun } from '@/lib/api'
 export function useCreateRun() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (task: string) => createRun(task),
+    mutationFn: ({ task, agentType }: { task: string; agentType?: string }) =>
+      createRun(task, agentType),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['runs'] })
     },

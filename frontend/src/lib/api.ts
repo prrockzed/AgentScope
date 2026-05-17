@@ -1,4 +1,4 @@
-import type { AgentRun, FailureSummary, RegressionTest, SavedRun, TraceStep } from '@/types'
+import type { AgentDefinition, AgentRun, FailureSummary, RegressionTest, SavedRun, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -22,11 +22,15 @@ export async function getTraces(runId: string): Promise<TraceStep[]> {
   return fetcher<TraceStep[]>(`/api/runs/${runId}/traces`)
 }
 
-export async function createRun(task: string): Promise<AgentRun> {
+export async function getAgents(): Promise<AgentDefinition[]> {
+  return fetcher<AgentDefinition[]>('/api/agents')
+}
+
+export async function createRun(task: string, agentType?: string): Promise<AgentRun> {
   const res = await fetch(`${BASE_URL}/api/runs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task }),
+    body: JSON.stringify({ task, agentType: agentType ?? 'tool_agent' }),
   })
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`)

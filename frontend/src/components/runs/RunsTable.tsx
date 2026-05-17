@@ -45,10 +45,18 @@ function activeFilterCount(f: Filters) {
     .filter(Boolean).length
 }
 
+function formatAgentType(agentType: string | null): string {
+  if (!agentType) return '—'
+  return agentType
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 function SkeletonRow() {
   return (
     <TableRow style={{ borderBottom: '1px solid var(--border-custom)' }}>
-      {[...Array(7)].map((_, i) => (
+      {[...Array(8)].map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-full rounded" style={{ backgroundColor: 'var(--bg-elevated)' }} />
         </TableCell>
@@ -317,7 +325,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
           <Table>
             <TableHeader>
               <TableRow style={{ borderBottom: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}>
-                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', ''].map((h) => (
+                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', 'Agent', ''].map((h) => (
                   <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </TableHead>
@@ -329,7 +337,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
               ) : filteredRuns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                  <TableCell colSpan={9} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                     {hasAnyFilter ? 'No runs match your search or filters.' : 'No runs yet. Submit your first task above.'}
                   </TableCell>
                 </TableRow>
@@ -377,6 +385,9 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                     </TableCell>
                     <TableCell className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
                       {run.model ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {formatAgentType(run.agentType)}
                     </TableCell>
                     <TableCell>
                       <Link

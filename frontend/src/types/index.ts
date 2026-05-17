@@ -1,5 +1,11 @@
 export type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED'
 
+export interface AgentDefinition {
+  id: string
+  name: string
+  description: string
+}
+
 export type EventType =
   | 'TOOL_CALL'
   | 'LLM_RESPONSE'
@@ -17,6 +23,7 @@ export interface AgentRun {
   replayOf: string | null
   failureReason: string | null
   model: string | null
+  agentType: string | null
 }
 
 export interface TraceStep {

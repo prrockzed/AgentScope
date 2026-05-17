@@ -43,4 +43,7 @@ public class AgentRun {
 
     @Column
     private String model;
+
+    @Column(name = "agent_type")
+    private String agentType;
 }

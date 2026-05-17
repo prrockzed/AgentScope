@@ -12,5 +12,6 @@ public record AgentRunDto(
         Integer totalTokens,
         UUID replayOf,
         String failureReason,
-        String model
+        String model,
+        String agentType
 ) {}

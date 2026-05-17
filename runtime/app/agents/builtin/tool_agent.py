@@ -1,10 +1,18 @@
-"""LangGraph agent workflow.
+"""Tool Agent — plans which tool to use, executes it, summarises the result,
+and validates the output. Retries up to 3× on failure.
 
-Graph:
+LangGraph workflow
+------------------
   START → planner → tool_executor → summarizer → validator
-  validator: PASS  → output_assembler → END
-  validator: FAIL + retry_count <= 3 → tool_executor (retry)
-  validator: FAIL + retry_count > 3  → output_assembler → END (failed)
+  validator: PASS              → output_assembler → END
+  validator: FAIL, retries ≤ 3 → tool_executor  (retry)
+  validator: FAIL, retries > 3 → output_assembler → END (failed)
+
+Public helpers
+--------------
+  build_workflow(llm, tracer)  — compile and return the LangGraph app; useful
+                                 if you want to inspect or extend the graph.
+  AgentState                   — TypedDict that describes the mutable workflow state.
 """
 
 from __future__ import annotations
@@ -18,6 +26,7 @@ from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
+from app.agents.registry import AgentDefinition, register
 from app.tools.base import BaseTool
 from app.tools.calculator import CalculatorTool
 from app.tools.fetch_website import FetchWebsiteTool
@@ -40,7 +49,7 @@ TOOLS: dict[str, BaseTool] = {t.name: t for t in _TOOL_INSTANCES}
 _MAX_RETRIES = 3
 
 # ---------------------------------------------------------------------------
-# State
+# Workflow state
 # ---------------------------------------------------------------------------
 
 
@@ -77,7 +86,7 @@ def _initial_state(task: str, run_id: str) -> AgentState:
 
 
 # ---------------------------------------------------------------------------
-# Node factories (close over llm and tracer)
+# Node factories (close over llm / tracer at graph-compile time)
 # ---------------------------------------------------------------------------
 
 def _make_planner(llm: ChatOllama, tracer: Tracer):
@@ -102,11 +111,8 @@ def _make_planner(llm: ChatOllama, tracer: Tracer):
 
         content = response.content
         tokens = getattr(response, "usage_metadata", None)
-        token_count = 0
-        if tokens:
-            token_count = tokens.get("total_tokens", 0)
+        token_count = tokens.get("total_tokens", 0) if tokens else 0
 
-        # Extract JSON robustly
         match = re.search(r"\{.*\}", content, re.DOTALL)
         tool_name: Optional[str] = None
         tool_input: Optional[dict[str, Any]] = None
@@ -144,7 +150,6 @@ def _make_planner(llm: ChatOllama, tracer: Tracer):
 
 def _make_tool_executor(tracer: Tracer):
     def tool_executor(state: AgentState) -> AgentState:
-        # Emit retry event when this is a retry attempt
         if state["retry_count"] > 0:
             tracer.emit(
                 event_type="RETRY_TRIGGERED",
@@ -223,9 +228,7 @@ def _make_summarizer(llm: ChatOllama, tracer: Tracer):
 
         content = response.content
         tokens = getattr(response, "usage_metadata", None)
-        token_count = 0
-        if tokens:
-            token_count = tokens.get("total_tokens", 0)
+        token_count = tokens.get("total_tokens", 0) if tokens else 0
 
         tracer.emit(
             event_type="LLM_RESPONSE",
@@ -276,8 +279,9 @@ def _make_output_assembler(tracer: Tracer):
             final_output = state.get("summary") or state.get("tool_output")
             run_status = "SUCCESS"
         else:
-            # FAIL after max retries exhausted — use whatever we have
-            final_output = state.get("summary") or state.get("tool_output") or state.get("error")
+            final_output = (
+                state.get("summary") or state.get("tool_output") or state.get("error")
+            )
             run_status = "FAILED"
 
         tracer.emit(
@@ -307,10 +311,15 @@ def _route_validator(state: AgentState) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public helpers
 # ---------------------------------------------------------------------------
 
 def build_workflow(llm: ChatOllama, tracer: Tracer) -> Any:
+    """Compile and return the LangGraph app for the tool agent.
+
+    Useful if you want to inspect the graph, add extra nodes, or run the
+    workflow directly without going through the registry.
+    """
     graph = StateGraph(AgentState)
 
     graph.add_node("planner", _make_planner(llm, tracer))
@@ -336,12 +345,16 @@ def build_workflow(llm: ChatOllama, tracer: Tracer) -> Any:
     return graph.compile()
 
 
-def run_agent(
+# ---------------------------------------------------------------------------
+# Registry entry-point
+# ---------------------------------------------------------------------------
+
+def _run(
     task: str,
     run_id: str,
     tracer: Tracer,
-    model: str = "llama3",
-    base_url: str = "http://localhost:11434",
+    model: str,
+    base_url: str,
 ) -> dict[str, Any]:
     llm = ChatOllama(model=model, base_url=base_url)
     workflow = build_workflow(llm, tracer)
@@ -353,3 +366,14 @@ def run_agent(
         "total_tokens": final_state.get("total_tokens", 0),
         "error": final_state.get("error"),
     }
+
+
+register(AgentDefinition(
+    id="tool_agent",
+    name="Tool Agent",
+    description=(
+        "Plans which tool to use, executes it, summarises the result, "
+        "and validates the output. Retries up to 3× on failure."
+    ),
+    run_fn=_run,
+))
