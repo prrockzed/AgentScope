@@ -21,6 +21,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Automatic failure detection** — every failed run is tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); surfaced via a red banner, highlighted timeline steps, and graph node outlines
 - **Autonomous eval generation** — failed runs automatically create a regression test and a failing evaluation; when the same task later passes, the evaluation flips to passing; the Evaluations page tracks all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status
 - **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
+- **Optimization Advisor** — after every run, rule-based heuristics automatically fire and write actionable suggestions (latency, retries, token usage, failure type); on demand, click "Analyse with AI" in the trace viewer to call the Groq API (`llama-3.3-70b-versatile`) for deeper AI-powered suggestions; all suggestions live on the `/optimizations` page with severity badges, category labels, and per-run filtering; once AI analysis is done the button turns green and links directly to the AI Analysis tab
 - **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
 
 ---
@@ -57,6 +58,7 @@ PostgreSQL  ◄─────────────────────�
 6. When the agent finishes, Spring Boot marks the run `SUCCESS` or `FAILED` with total latency and token count
 7. Spring Boot runs failure detection — if the run failed, it tags the run with a reason code
 8. Spring Boot runs eval generation — if the run failed, a regression test and a failing evaluation are created automatically; if the run succeeded and a regression test already exists for that task, a passing evaluation is recorded
+9. Spring Boot runs the Optimization Advisor — rule-based heuristics fire automatically and write 0–N suggestions to `optimization_suggestions`; on demand the user can also trigger AI analysis via Groq
 
 ---
 
@@ -68,7 +70,8 @@ PostgreSQL  ◄─────────────────────�
 | **Backend** | Java 21, Spring Boot 3.5, JPA, Flyway, WebSocket |
 | **Database** | PostgreSQL 16 |
 | **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
-| **LLM** | Ollama — model chosen per run from a curated list; default persisted in browser localStorage |
+| **LLM** | Ollama (local) — model chosen per run from a curated list; default persisted in browser localStorage |
+| **AI Analysis** | Groq API (`llama-3.3-70b-versatile`) — on-demand optimization suggestions; key loaded from `.env` |
 | **Infrastructure** | Docker Compose (all services containerised) |
 | **Monitoring** | Prometheus 2.54, Grafana 11.2, Micrometer (Spring Boot), prometheus-fastapi-instrumentator (FastAPI) |
 
@@ -108,6 +111,14 @@ Java, Python, and Node.js are **not required** to run the project — everything
 ---
 
 ## Running the Project
+
+**Optional — Groq API key (for AI-powered optimization suggestions):**
+
+Get a free key at [console.groq.com](https://console.groq.com), then create a `.env` file at the project root (already in `.gitignore`):
+```bash
+echo "GROQ_API_KEY=gsk_..." > .env
+```
+Without this key, rule-based suggestions still work — only the "Analyse with AI" button has no effect.
 
 A single command builds all images and starts all services:
 
@@ -189,6 +200,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `evaluations` | Pass/fail scores per run — score `1.0` = passing, `0.0` = failing |
 | `regression_tests` | Auto-generated test cases from failures — input, expected failure reason, type (`AUTO`/`MANUAL`) |
 | `saved_runs` | Bookmarked run references — pointer to `agent_runs`, timestamp of when it was saved |
+| `optimization_suggestions` | Rule-based and AI-generated suggestions per run — category, severity, suggestion text, source (`RULE`\|`AI`) |
 
 **Inspect the database directly:**
 ```bash
@@ -225,6 +237,9 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/saved-runs` | List all saved runs ordered newest-first |
 | `GET` | `/api/regression-tests` | List all regression tests with derived `latestStatus` |
 | `POST` | `/api/runs/{id}/eval` | Manually trigger eval generation for a failed run |
+| `GET` | `/api/optimizations` | List all optimization suggestions newest-first |
+| `GET` | `/api/runs/{id}/optimizations` | List optimization suggestions for a single run |
+| `POST` | `/api/runs/{id}/optimizations/ai` | Trigger on-demand Groq AI analysis for a run (idempotent) |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -269,23 +284,23 @@ AgentScope/
 │           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations
+│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations, /optimizations
 │       ├── components/          UI components (runs, traces, analytics, evaluations, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useDefaultAgent, useDefaultModel, ...)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, ...)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, SavedRunService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun)
-│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, SavedRunRepository, ...)
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, ...)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V9 Flyway SQL migrations
+│       └── db/migration/        V1–V12 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute, GET /agents, GET /models endpoints
