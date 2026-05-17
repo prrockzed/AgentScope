@@ -14,55 +14,69 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateRun } from '@/hooks/useCreateRun'
 import { useAgents } from '@/hooks/useAgents'
+import { useModels } from '@/hooks/useModels'
 import { useDefaultAgent } from '@/hooks/useDefaultAgent'
+import { useDefaultModel } from '@/hooks/useDefaultModel'
 
 export function NewRunDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [task, setTask] = useState('')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false)
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+  const agentDropdownRef = useRef<HTMLDivElement>(null)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
 
   const { mutate, isPending } = useCreateRun()
   const { data: agents = [] } = useAgents()
-  const { agentId, setDefault } = useDefaultAgent()
+  const { data: models = [] } = useModels()
+  const { agentId } = useDefaultAgent()
+  const { modelId } = useDefaultModel()
 
-  const defaultAgent = agents.find((a) => a.id === agentId)
-  const defaultAgentName = defaultAgent?.name ?? 'Tool Agent'
+  const [pendingAgentId, setPendingAgentId] = useState<string>(agentId)
+  const [pendingModelId, setPendingModelId] = useState<string>(modelId)
 
-  // Close dropdown when clicking outside
+  // Sync pending state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setPendingAgentId(agentId)
+      setPendingModelId(modelId)
+    }
+  }, [open, agentId, modelId])
+
+  const pendingAgent = agents.find((a) => a.id === pendingAgentId)
+  const pendingAgentName = pendingAgent?.name ?? 'Tool Agent'
+  const pendingModel = models.find((m) => m.id === pendingModelId)
+  const pendingModelName = pendingModel?.name ?? 'Qwen3 4B'
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
+      if (agentDropdownRef.current && !agentDropdownRef.current.contains(e.target as Node)) {
+        setAgentDropdownOpen(false)
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  function submit(selectedAgentType: string) {
+  function handleSubmit() {
     if (!task.trim()) return
     mutate(
-      { task: task.trim(), agentType: selectedAgentType },
+      { task: task.trim(), agentType: pendingAgentId, model: pendingModelId },
       {
         onSuccess: (newRun) => {
           setOpen(false)
           setTask('')
-          setDropdownOpen(false)
+          setAgentDropdownOpen(false)
+          setModelDropdownOpen(false)
           router.push(`/runs/${newRun.id}`)
         },
       },
     )
-  }
-
-  function handleSubmit() {
-    submit(agentId)
-  }
-
-  function handleRunAs(agentType: string) {
-    setDropdownOpen(false)
-    submit(agentType)
   }
 
   return (
@@ -120,10 +134,13 @@ export function NewRunDialog() {
               </Button>
 
               {/* Run as… dropdown */}
-              <div className="relative" ref={dropdownRef}>
+              <div className="relative" ref={agentDropdownRef}>
                 <Button
-                  onClick={() => setDropdownOpen((v) => !v)}
-                  disabled={isPending || !task.trim()}
+                  onClick={() => {
+                    setModelDropdownOpen(false)
+                    setAgentDropdownOpen((v) => !v)
+                  }}
+                  disabled={isPending}
                   className="gap-1"
                   style={{
                     backgroundColor: 'var(--bg-elevated)',
@@ -135,7 +152,7 @@ export function NewRunDialog() {
                   <ChevronDown size={13} />
                 </Button>
 
-                {dropdownOpen && (
+                {agentDropdownOpen && (
                   <div
                     className="absolute right-0 z-50 mt-1 w-72 rounded-md py-1 shadow-lg max-h-70 overflow-y-auto"
                     style={{
@@ -146,7 +163,10 @@ export function NewRunDialog() {
                     {agents.map((agent) => (
                       <button
                         key={agent.id}
-                        onClick={() => handleRunAs(agent.id)}
+                        onClick={() => {
+                          setPendingAgentId(agent.id)
+                          setAgentDropdownOpen(false)
+                        }}
                         className="w-full px-3 py-2 text-left hover:opacity-80 transition-opacity"
                         style={{ color: 'var(--text-primary)' }}
                       >
@@ -162,11 +182,78 @@ export function NewRunDialog() {
                   </div>
                 )}
               </div>
+
+              {/* Model dropdown */}
+              <div className="relative" ref={modelDropdownRef}>
+                <Button
+                  onClick={() => {
+                    setAgentDropdownOpen(false)
+                    setModelDropdownOpen((v) => !v)
+                  }}
+                  disabled={isPending}
+                  className="gap-1"
+                  style={{
+                    backgroundColor: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-custom)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Model
+                  <ChevronDown size={13} />
+                </Button>
+
+                {modelDropdownOpen && (
+                  <div
+                    className="absolute right-0 z-50 mt-1 w-72 rounded-md py-1 shadow-lg max-h-70 overflow-y-auto"
+                    style={{
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-custom)',
+                    }}
+                  >
+                    {models.map((model) => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          if (!model.available) return
+                          setPendingModelId(model.id)
+                          setModelDropdownOpen(false)
+                        }}
+                        className="w-full px-3 py-2 text-left transition-opacity"
+                        style={{
+                          color: model.available ? 'var(--text-primary)' : 'var(--text-muted)',
+                          cursor: model.available ? 'pointer' : 'default',
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{model.name}</span>
+                          {!model.available && (
+                            <span
+                              className="text-[10px] rounded px-1.5 py-0.5"
+                              style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                            >
+                              not pulled
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="text-xs mt-0.5"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          {model.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Sub-label showing default agent */}
+            {/* Sub-label showing selected agent and model */}
             <p className="text-xs pl-0.5" style={{ color: 'var(--text-muted)' }}>
-              via {defaultAgentName}
+              via {pendingAgentName} · {pendingModelName}
+              {pendingModel && !pendingModel.available && (
+                <span style={{ color: 'var(--orange-500, #f97316)' }}> — not pulled</span>
+              )}
             </p>
           </div>
         </div>

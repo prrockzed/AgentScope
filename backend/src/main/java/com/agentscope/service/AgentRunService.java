@@ -35,9 +35,6 @@ public class AgentRunService {
     @Value("${runtime.base-url}")
     private String runtimeBaseUrl;
 
-    @Value("${ollama.model:qwen3:4b}")
-    private String ollamaModel;
-
     public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate,
                            FailureDetectionService failureDetectionService,
                            EvaluationService evaluationService,
@@ -52,17 +49,18 @@ public class AgentRunService {
     public AgentRunDto createAndExecuteRun(CreateRunRequest request) {
         UUID runId = UUID.randomUUID();
         String agentType = request.agentType() != null ? request.agentType() : "tool_agent";
+        String resolvedModel = request.model();
 
         AgentRun run = new AgentRun();
         run.setId(runId);
         run.setTask(request.task());
         run.setStatus("RUNNING");
         run.setCreatedAt(Instant.now());
-        run.setModel(ollamaModel);
+        run.setModel(resolvedModel);
         run.setAgentType(agentType);
         agentRunRepository.save(run);
 
-        startRunThread(runId, request.task(), agentType, "run-" + runId);
+        startRunThread(runId, request.task(), agentType, resolvedModel, "run-" + runId);
 
         return toDto(run);
     }
@@ -96,17 +94,19 @@ public class AgentRunService {
         UUID newRunId = UUID.randomUUID();
         String agentType = original.getAgentType() != null ? original.getAgentType() : "tool_agent";
 
+        String replayModel = original.getModel();
+
         AgentRun newRun = new AgentRun();
         newRun.setId(newRunId);
         newRun.setTask(original.getTask());
         newRun.setStatus("RUNNING");
         newRun.setCreatedAt(Instant.now());
         newRun.setReplayOf(original.getId());
-        newRun.setModel(ollamaModel);
+        newRun.setModel(replayModel);
         newRun.setAgentType(agentType);
         agentRunRepository.save(newRun);
 
-        startRunThread(newRunId, original.getTask(), agentType, "replay-" + newRunId);
+        startRunThread(newRunId, original.getTask(), agentType, replayModel, "replay-" + newRunId);
 
         return toDto(newRun);
     }
@@ -115,19 +115,19 @@ public class AgentRunService {
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    private void startRunThread(UUID runId, String task, String agentType, String threadName) {
-        Thread thread = new Thread(() -> executeRuntime(runId, task, agentType), threadName);
+    private void startRunThread(UUID runId, String task, String agentType, String model, String threadName) {
+        Thread thread = new Thread(() -> executeRuntime(runId, task, agentType, model), threadName);
         thread.setDaemon(true);
         thread.start();
     }
 
-    private void executeRuntime(UUID runId, String task, String agentType) {
+    private void executeRuntime(UUID runId, String task, String agentType, String model) {
         String status = "FAILED";
         Long latency = null;
         Integer tokens = null;
 
         try {
-            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType);
+            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model);
             RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
                     runtimeBaseUrl + "/execute",
                     runtimeRequest,
@@ -207,7 +207,7 @@ public class AgentRunService {
         );
     }
 
-    private record RuntimeExecuteRequest(String task, String run_id, String agent_type) {}
+    private record RuntimeExecuteRequest(String task, String run_id, String agent_type, String model) {}
 
     private record RuntimeExecuteResponse(
             String status,

@@ -25,7 +25,6 @@ services:
       DB_USERNAME: agentscope
       DB_PASSWORD: agentscope
       RUNTIME_BASE_URL: http://runtime:8000
-      OLLAMA_MODEL: qwen3:4b
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +42,6 @@ services:
     environment:
       BACKEND_URL: http://backend:8080
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen3:4b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

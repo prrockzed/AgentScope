@@ -1,10 +1,12 @@
 import time
 import uuid
 
+import requests
 from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
+from app.models import SUPPORTED_MODELS
 from app.schemas.requests import ExecuteRequest
 from app.schemas.responses import ExecuteResponse, TraceStepResponse
 from app.tracing.tracer import Tracer
@@ -24,6 +26,16 @@ def get_agents():
     return list_agents()
 
 
+@app.get("/models")
+def get_models():
+    try:
+        resp = requests.get(f"{settings.ollama_base_url}/api/tags", timeout=5)
+        pulled = {m["name"] for m in resp.json().get("models", [])} if resp.status_code == 200 else set()
+    except Exception:
+        pulled = set()
+    return [{**model, "available": model["id"] in pulled} for model in SUPPORTED_MODELS]
+
+
 @app.post("/execute", response_model=ExecuteResponse)
 def execute(request: ExecuteRequest):
     if not request.task or not request.task.strip():
@@ -37,11 +49,14 @@ def execute(request: ExecuteRequest):
     tracer = Tracer(run_id=run_id, backend_url=settings.backend_url)
     start = time.time()
 
+    model = request.model
+    if not model:
+        raise HTTPException(status_code=422, detail="model must be specified")
     result = REGISTRY[agent_type].run_fn(
         task=request.task,
         run_id=run_id,
         tracer=tracer,
-        model=settings.ollama_model,
+        model=model,
         base_url=settings.ollama_base_url,
     )
 

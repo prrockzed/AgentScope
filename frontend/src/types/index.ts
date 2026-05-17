@@ -6,6 +6,13 @@ export interface AgentDefinition {
   description: string
 }
 
+export interface ModelDefinition {
+  id: string
+  name: string
+  description: string
+  available: boolean
+}
+
 export type EventType =
   | 'TOOL_CALL'
   | 'LLM_RESPONSE'
