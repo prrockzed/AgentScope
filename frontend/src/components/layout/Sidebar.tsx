@@ -5,14 +5,29 @@ import { usePathname } from 'next/navigation'
 import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Cpu, FlaskConical, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const nav = [
-  { href: '/runs', label: 'Runs', icon: Activity },
-  { href: '/models', label: 'Models', icon: Cpu },
-  { href: '/agents', label: 'Agents', icon: Bot },
-  { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
-  { href: '/failures', label: 'Failures', icon: AlertTriangle },
+const groups = [
+  {
+    label: 'OBSERVE',
+    items: [
+      { href: '/runs', label: 'Runs', icon: Activity },
+      { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/failures', label: 'Failures', icon: AlertTriangle },
+    ],
+  },
+  {
+    label: 'RUNTIME',
+    items: [
+      { href: '/agents', label: 'Agents', icon: Bot },
+      { href: '/models', label: 'Models', icon: Cpu },
+    ],
+  },
+  {
+    label: 'INTELLIGENCE',
+    items: [
+      { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
+      { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
+    ],
+  },
 ]
 
 export function Sidebar() {
@@ -40,30 +55,38 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-col gap-1 p-3 flex-1">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                active
-                  ? 'text-white'
-                  : 'hover:text-white'
-              )}
-              style={
-                active
-                  ? { backgroundColor: 'var(--purple-600)', color: 'white' }
-                  : { color: 'var(--text-muted)' }
-              }
+      <nav className="flex flex-col gap-7 p-3 flex-1">
+        {groups.map((group) => (
+          <div key={group.label} className="flex flex-col gap-1">
+            <p
+              className="px-3 pb-1 text-[12px] font-semibold tracking-widest"
+              style={{ color: 'var(--text-muted)', opacity: 0.5 }}
             >
-              <Icon size={16} />
-              {label}
-            </Link>
-          )
-        })}
+              {group.label}
+            </p>
+            {group.items.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + '/')
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    active ? 'text-white' : 'hover:text-white'
+                  )}
+                  style={
+                    active
+                      ? { backgroundColor: 'var(--purple-600)', color: 'white' }
+                      : { color: 'var(--text-muted)' }
+                  }
+                >
+                  <Icon size={16} />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Settings */}
