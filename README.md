@@ -8,19 +8,19 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 
 ---
 
-## What It Does
+## Features
 
-- **Submit a task** to an AI agent from the browser
-- **Watch the trace live** — each step appears in real time as the agent works through it
-- **Inspect any step** — expand it to see the exact prompt sent and response received
-- **Browse past runs** — table of all runs with status, latency, token count, and model
-- **View analytics** — latency trends, token usage, success/failure breakdown — all from real data
-- **Replay any run** — re-execute a past run with the same task; navigate live to the new run's trace
-- **Compare runs side by side** — diff view aligns steps by number, highlights where status, event type, or tool name changed, and shows a summary banner of how many steps differ
-- **Failure detection** — every failed run is automatically tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); a red banner, highlighted timeline steps, and a graph node outline surface the failure without manual trace inspection
-- **Autonomous eval generation** — every failed run automatically creates a regression test entry and a failing evaluation; when the same task passes later, the evaluation flips to passing; the Evaluations page shows all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status chips; a "Generate Eval" button on any failed run's trace viewer lets you trigger this manually
-- **Saved Runs** — bookmark any completed run with a "Save Run" button on its trace viewer; saved runs appear in a dedicated Saved Runs page (sidebar) showing task, status, latency, and when it was saved; from there you can jump back to the original trace, re-execute the task, or unsave the run; saving is a lightweight reference — no data is copied
-- **Prometheus + Grafana monitoring** — every completed run emits metrics (run count by status, latency histogram, token counter, failure reason counter) to Prometheus via Spring Boot Actuator and the FastAPI `/metrics` endpoint; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across three rows: Summary stats, Throughput & Latency time series, and Token Usage & Failure Reasons
+- **Multi-agent support** — choose from 5 built-in agents (Tool Agent, Direct Answer, Chain of Thought, Summariser, Critic Agent); set a default in Settings or pick a different one per run with the "Run as…" button; each run records which agent executed it
+- **Live trace viewer** — submit a task and watch every step appear in real time; each step shows event type, tool name, latency, token count, and full prompt/response
+- **Step inspection** — expand any trace step to read the exact prompt sent to the LLM and the exact response received
+- **Run history** — searchable, filterable table of all runs with status, latency, token count, model, and agent columns; filter by status, date range, latency, or token count
+- **Analytics dashboard** — latency trends, token usage over time, and success/failure breakdown — all derived from real run data
+- **Run replay** — re-execute any past run with the same task; navigates live to the new run's trace
+- **Side-by-side run comparison** — diff view aligns steps by number and highlights where status, event type, or tool name changed; a summary banner shows how many steps differ
+- **Automatic failure detection** — every failed run is tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); surfaced via a red banner, highlighted timeline steps, and graph node outlines
+- **Autonomous eval generation** — failed runs automatically create a regression test and a failing evaluation; when the same task later passes, the evaluation flips to passing; the Evaluations page tracks all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status
+- **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
+- **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
 
 ---
 
@@ -197,6 +197,7 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `GET` | `/api/agents` | List all registered agents (id, name, description) |
 | `GET` | `/api/runs` | List all agent runs |
 | `GET` | `/api/runs/{id}` | Get a single run |
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
@@ -213,8 +214,9 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
 
 **POST /api/runs request body:**
 ```json
-{ "task": "Summarize https://example.com" }
+{ "task": "Summarize https://example.com", "agentType": "summariser" }
 ```
+`agentType` is optional and defaults to `"tool_agent"`.
 
 **AgentRun response shape:**
 ```json
@@ -227,7 +229,8 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "totalTokens": 831,
   "replayOf": null,
   "failureReason": null,
-  "model": "qwen3:4b"
+  "model": "qwen3:4b",
+  "agentType": "summariser"
 }
 ```
 Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`.
@@ -269,8 +272,17 @@ AgentScope/
 │       └── db/migration/        V1–V9 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
-        ├── main.py              POST /execute endpoint
-        ├── workflows/           LangGraph agent graph
+        ├── main.py              POST /execute + GET /agents endpoints
+        ├── agents/              Agent package
+        │   ├── __init__.py      Entry point — public API + triggers all registrations
+        │   ├── registry.py      AgentDefinition dataclass + REGISTRY dict
+        │   └── builtin/         All named agent implementations
+        │       ├── __init__.py  Agent catalogue — edit this to add/remove agents
+        │       ├── tool_agent.py    LangGraph tool+retry workflow (default)
+        │       ├── direct_answer.py Single LLM call, no tools
+        │       ├── chain_of_thought.py Step-by-step reasoning prompt
+        │       ├── summariser.py    URL fetch or content → structured summary
+        │       └── critic_agent.py  Generator → critic → revisor (3 LLM calls)
         ├── tools/               fetch_website, calculator, file_reader
         ├── tracing/             Trace event emission
         ├── validators/          Output validation
@@ -279,9 +291,19 @@ AgentScope/
 
 ---
 
-## Agent Capabilities
+## Built-in Agents
 
-The agent has three tools it can invoke:
+Five agents ship out of the box. Select one in the **Settings** page to set it as your default, or use **Run as…** in the New Run dialog to pick per-run.
+
+| ID | Name | When to use |
+|---|---|---|
+| `tool_agent` | Tool Agent | Default. Plans a tool call, executes it, summarises, validates. Retries up to 3×. |
+| `direct_answer` | Direct Answer | Fastest. Sends task directly to the LLM — no tools, no retries. |
+| `chain_of_thought` | Chain of Thought | Logic, maths, multi-part questions. Forces step-by-step reasoning before answering. |
+| `summariser` | Summariser | Pass a URL or raw content. Returns a structured summary with key points and takeaways. |
+| `critic_agent` | Critic Agent | Quality-sensitive tasks. Generates a draft, critiques it, then rewrites for accuracy. |
+
+The Tool Agent uses three tools internally:
 
 | Tool | What it does |
 |---|---|
@@ -289,7 +311,127 @@ The agent has three tools it can invoke:
 | `calculator` | Evaluates a math expression |
 | `file_reader` | Reads `.txt`, `.md`, or `.pdf` files |
 
-The LangGraph workflow runs these in sequence: Planner → Tool Selection → Tool Execution → Summarization → Validation. If a step fails, it retries up to 3 times — each retry appears as a separate `RETRY_TRIGGERED` trace event.
+---
+
+## Creating a Custom Agent
+
+All agents live in `runtime/app/agents/`. Each file is self-contained: it implements a `_run` function and calls `register()` at module level. `main.py` imports the file once to trigger registration.
+
+### Step 1 — Create the file
+
+```python
+# runtime/app/agents/builtin/my_agent.py
+"""My Agent — one-line description of what it does."""
+
+import time
+from typing import Any
+
+from langchain_ollama import ChatOllama
+
+from app.agents.registry import AgentDefinition, register
+from app.tracing.tracer import Tracer
+
+
+def _run(
+    task: str,
+    run_id: str,
+    tracer: Tracer,
+    model: str,
+    base_url: str,
+) -> dict[str, Any]:
+    """
+    All agents share this exact signature.
+
+    Parameters
+    ----------
+    task     : the user's task string
+    run_id   : UUID string for this run (already created by the backend)
+    tracer   : emits trace events; pass backend_url=None to collect locally only
+    model    : Ollama model name, e.g. "qwen3:4b"
+    base_url : Ollama base URL, e.g. "http://localhost:11434"
+
+    Returns
+    -------
+    dict with keys:
+      status       – "SUCCESS" or "FAILED"
+      final_output – string shown in the UI, or None
+      total_tokens – int token count across all LLM calls
+      error        – error message string, or None
+    """
+    llm = ChatOllama(model=model, base_url=base_url)
+
+    t0 = time.time()
+    response = llm.invoke([{"role": "user", "content": task}])
+    latency = int((time.time() - t0) * 1000)
+
+    content = response.content
+    tokens = getattr(response, "usage_metadata", None)
+    token_count = tokens.get("total_tokens", 0) if tokens else 0
+
+    # Every LLM call or tool use should emit a trace event so it appears
+    # in the trace viewer.
+    tracer.emit(
+        event_type="LLM_RESPONSE",   # one of: LLM_RESPONSE, TOOL_CALL,
+        status="SUCCESS",            #   VALIDATION_FAILURE, RETRY_TRIGGERED,
+        latency=latency,             #   RUN_COMPLETED
+        token_usage=token_count,
+        prompt=task,
+        response=content,
+    )
+    # Always emit RUN_COMPLETED as the final event.
+    tracer.emit(
+        event_type="RUN_COMPLETED",
+        status="SUCCESS",
+        token_usage=token_count,
+        response=content,
+    )
+
+    return {
+        "status": "SUCCESS",
+        "final_output": content,
+        "total_tokens": token_count,
+        "error": None,
+    }
+
+
+register(AgentDefinition(
+    id="my_agent",          # unique snake_case ID — used in API requests
+    name="My Agent",        # display name shown in the UI
+    description="Does something useful with the task.",
+    run_fn=_run,
+))
+```
+
+### Step 2 — Add one line to `builtin/__init__.py`
+
+```python
+# runtime/app/agents/builtin/__init__.py
+from app.agents.builtin import my_agent  # noqa: F401  ← add this line
+```
+
+That's it. `main.py` never needs to change. The agent now appears in `GET /api/agents`, in the Settings page, and in the **Run as…** dropdown.
+
+### Tips
+
+**Using tools** — import any tool from `app.tools` and call `tool.run(**kwargs)`:
+```python
+from app.tools.fetch_website import FetchWebsiteTool
+fetcher = FetchWebsiteTool()
+content = fetcher.run(url="https://example.com")
+```
+
+**Multi-step agents** — call the LLM multiple times and emit a trace event for each call. See `critic_agent.py` for a three-step (generator → critic → revisor) example.
+
+**LangGraph agents** — build a `StateGraph`, compile it, and invoke it from `_run`. See `tool_agent.py` for a full graph example including conditional retry edges.
+
+**Using outside this project** — create a `Tracer` with `backend_url=None` to collect steps locally without a backend:
+```python
+from app.tracing.tracer import Tracer
+tracer = Tracer(run_id="local-test-1")         # no backend_url → offline mode
+result = my_agent_run("2 + 2", "local-test-1", tracer, "qwen3:4b", "http://localhost:11434")
+print(result["final_output"])
+print(tracer.steps)                            # list of all emitted trace events
+```
 
 ---
 
