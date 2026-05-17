@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { NewRunDialog } from '@/components/runs/NewRunDialog'
 
 function getTitle(pathname: string): string {
+  if (pathname.startsWith('/agents')) return 'Agents'
   if (pathname.startsWith('/analytics')) return 'Analytics'
   if (pathname.startsWith('/evaluations')) return 'Evaluations'
   if (pathname.startsWith('/failures')) return 'Failures'

@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, AlertTriangle, Bookmark, FlaskConical, Settings } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, FlaskConical, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/runs', label: 'Runs', icon: Activity },
+  { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
