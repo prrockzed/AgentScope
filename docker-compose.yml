@@ -25,6 +25,7 @@ services:
       DB_USERNAME: agentscope
       DB_PASSWORD: agentscope
       RUNTIME_BASE_URL: http://runtime:8000
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

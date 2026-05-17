@@ -10,6 +10,7 @@ function getTitle(pathname: string): string {
   if (pathname.startsWith('/evaluations')) return 'Evaluations'
   if (pathname.startsWith('/failures')) return 'Failures'
   if (pathname.startsWith('/settings')) return 'Settings'
+  if (pathname.startsWith('/optimizations')) return 'Optimizations'
   if (pathname.match(/^\/runs\/[^/]+/)) return 'Trace Viewer'
   if (pathname.startsWith('/runs')) return 'Runs'
   return 'AgentScope'

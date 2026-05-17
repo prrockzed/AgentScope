@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Cpu, FlaskConical, Settings } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Cpu, FlaskConical, Lightbulb, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const groups = [
@@ -26,6 +26,7 @@ const groups = [
     items: [
       { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
       { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
+      { href: '/optimizations', label: 'Optimizations', icon: Lightbulb },
     ],
   },
 ]

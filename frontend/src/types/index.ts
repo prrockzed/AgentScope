@@ -75,3 +75,13 @@ export interface SavedRun {
   agentType: string | null
   savedAt: string
 }
+
+export interface OptimizationSuggestion {
+  id: string
+  runId: string
+  category: string
+  severity: 'HIGH' | 'MEDIUM' | 'LOW'
+  suggestion: string
+  source: 'RULE' | 'AI'
+  createdAt: string
+}

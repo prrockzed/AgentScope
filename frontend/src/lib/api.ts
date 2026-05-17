@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentRun, FailureSummary, ModelDefinition, RegressionTest, SavedRun, TraceStep } from '@/types'
+import type { AgentDefinition, AgentRun, FailureSummary, ModelDefinition, OptimizationSuggestion, RegressionTest, SavedRun, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -78,4 +78,17 @@ export async function unsaveRun(id: string): Promise<void> {
 
 export async function getFailureSummary(): Promise<FailureSummary[]> {
   return fetcher<FailureSummary[]>('/api/failures/summary')
+}
+
+export async function getOptimizations(): Promise<OptimizationSuggestion[]> {
+  return fetcher<OptimizationSuggestion[]>('/api/optimizations')
+}
+
+export async function getRunOptimizations(runId: string): Promise<OptimizationSuggestion[]> {
+  return fetcher<OptimizationSuggestion[]>(`/api/runs/${runId}/optimizations`)
+}
+
+export async function analyzeWithAI(runId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/runs/${runId}/optimizations/ai`, { method: 'POST' })
+  if (!res.ok) throw new Error('AI analysis failed')
 }

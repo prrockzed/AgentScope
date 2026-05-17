@@ -30,6 +30,7 @@ public class AgentRunService {
     private final RestTemplate restTemplate;
     private final FailureDetectionService failureDetectionService;
     private final EvaluationService evaluationService;
+    private final OptimizationService optimizationService;
     private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
@@ -38,11 +39,13 @@ public class AgentRunService {
     public AgentRunService(AgentRunRepository agentRunRepository, RestTemplate restTemplate,
                            FailureDetectionService failureDetectionService,
                            EvaluationService evaluationService,
+                           OptimizationService optimizationService,
                            MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
         this.failureDetectionService = failureDetectionService;
         this.evaluationService = evaluationService;
+        this.optimizationService = optimizationService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -156,6 +159,7 @@ public class AgentRunService {
 
         failureDetectionService.analyze(runId);
         evaluationService.onRunComplete(runId);
+        optimizationService.analyze(runId);
         recordMetrics(runId, finalStatus, finalLatency, finalTokens);
     }
 
