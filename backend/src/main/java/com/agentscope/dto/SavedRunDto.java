@@ -10,5 +10,7 @@ public record SavedRunDto(
         String status,
         Long totalLatency,
         Integer totalTokens,
+        String model,
+        String agentType,
         Instant savedAt
 ) {}

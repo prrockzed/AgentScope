@@ -9,5 +9,7 @@ public record RegressionTestDto(
         String expectedFailure,
         String type,
         Instant createdAt,
-        String latestStatus
+        String latestStatus,
+        String model,
+        String agentType
 ) {}

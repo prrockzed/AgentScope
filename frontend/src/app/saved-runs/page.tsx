@@ -14,12 +14,12 @@ import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
 import { useSavedRuns } from '@/hooks/useSavedRuns'
 import { useUnsaveRun } from '@/hooks/useUnsaveRun'
 import { useReplayRun } from '@/hooks/useReplayRun'
-import { formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
+import { formatAgentType, formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
 
 function SkeletonRow() {
   return (
     <TableRow style={{ borderBottom: '1px solid var(--border-custom)' }}>
-      {[...Array(7)].map((_, i) => (
+      {[...Array(9)].map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-full rounded" style={{ backgroundColor: 'var(--bg-elevated)' }} />
         </TableCell>
@@ -43,7 +43,7 @@ export default function SavedRunsPage() {
         <Table>
           <TableHeader>
             <TableRow style={{ borderBottom: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}>
-              {['ID', 'Task', 'Status', 'Latency', 'Tokens', 'Saved At', 'Actions'].map((h) => (
+              {['ID', 'Task', 'Status', 'Latency', 'Tokens', 'Agent', 'Model', 'Saved At', 'Actions'].map((h) => (
                 <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                   {h}
                 </TableHead>
@@ -55,7 +55,7 @@ export default function SavedRunsPage() {
               [...Array(4)].map((_, i) => <SkeletonRow key={i} />)
             ) : !savedRuns || savedRuns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                <TableCell colSpan={9} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                   No saved runs yet. Save a run from its trace viewer page.
                 </TableCell>
               </TableRow>
@@ -74,13 +74,13 @@ export default function SavedRunsPage() {
                     {truncateId(saved.runId)}
                   </TableCell>
                   <TableCell
-                    className="max-w-[220px] truncate text-sm"
+                    className="w-80 text-sm"
                     style={{ color: 'var(--text-primary)' }}
                     title={saved.task ?? ''}
                   >
                     {saved.task
-                      ? saved.task.length > 50
-                        ? saved.task.slice(0, 50) + '…'
+                      ? saved.task.length > 120
+                        ? saved.task.slice(0, 120) + '…'
                         : saved.task
                       : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                   </TableCell>
@@ -94,6 +94,12 @@ export default function SavedRunsPage() {
                   </TableCell>
                   <TableCell className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
                     {saved.totalTokens ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {saved.agentType ? formatAgentType(saved.agentType) : '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {saved.model ?? '—'}
                   </TableCell>
                   <TableCell className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     {formatRelativeTime(saved.savedAt)}

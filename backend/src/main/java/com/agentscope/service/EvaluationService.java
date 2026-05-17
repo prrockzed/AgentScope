@@ -80,15 +80,19 @@ public class EvaluationService {
     public List<RegressionTestDto> getAll() {
         return regressionTestRepository.findAll().stream()
                 .map(test -> {
-                    String status = agentRunRepository.findByTask(test.getInput())
+                    AgentRun latestRun = agentRunRepository.findByTask(test.getInput())
                             .stream()
                             .filter(r -> !"RUNNING".equals(r.getStatus()))
                             .max(Comparator.comparing(AgentRun::getCreatedAt))
-                            .flatMap(r -> evaluationRepository.findByRunId(r.getId()))
-                            .map(e -> e.getScore().compareTo(BigDecimal.ONE) >= 0 ? "PASSING" : "FAILING")
-                            .orElse("UNTESTED");
+                            .orElse(null);
+                    String status = latestRun == null ? "UNTESTED" :
+                            evaluationRepository.findByRunId(latestRun.getId())
+                                    .map(e -> e.getScore().compareTo(BigDecimal.ONE) >= 0 ? "PASSING" : "FAILING")
+                                    .orElse("UNTESTED");
                     return new RegressionTestDto(test.getId(), test.getInput(),
-                            test.getExpectedFailure(), test.getType(), test.getCreatedAt(), status);
+                            test.getExpectedFailure(), test.getType(), test.getCreatedAt(), status,
+                            latestRun != null ? latestRun.getModel() : null,
+                            latestRun != null ? latestRun.getAgentType() : null);
                 })
                 .toList();
     }

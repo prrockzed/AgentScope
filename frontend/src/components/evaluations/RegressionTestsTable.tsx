@@ -1,7 +1,7 @@
 'use client'
 
 import type { RegressionTest } from '@/types'
-import { formatRelativeTime } from '@/lib/utils'
+import { formatAgentType, formatRelativeTime } from '@/lib/utils'
 
 function statusStyle(status: string): React.CSSProperties {
   switch (status) {
@@ -41,6 +41,8 @@ export function RegressionTestsTable({ tests }: Props) {
             <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Input</th>
             <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Expected Failure</th>
             <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Type</th>
+            <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Agent</th>
+            <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Model</th>
             <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
             <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--text-muted)' }}>Created</th>
           </tr>
@@ -54,10 +56,10 @@ export function RegressionTestsTable({ tests }: Props) {
                 borderBottom: '1px solid var(--border-custom)',
               }}
             >
-              <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
+              <td className="px-4 py-3 w-80" style={{ color: 'var(--text-primary)' }}>
                 {test.input
-                  ? test.input.length > 60
-                    ? test.input.slice(0, 60) + '…'
+                  ? test.input.length > 120
+                    ? test.input.slice(0, 120) + '…'
                     : test.input
                   : <span style={{ color: 'var(--text-muted)' }}>—</span>}
               </td>
@@ -80,6 +82,12 @@ export function RegressionTestsTable({ tests }: Props) {
                 >
                   {test.type}
                 </span>
+              </td>
+              <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                {test.agentType ? formatAgentType(test.agentType) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+              </td>
+              <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                {test.model ?? <span>—</span>}
               </td>
               <td className="px-4 py-3">
                 <span

@@ -54,6 +54,8 @@ export interface RegressionTest {
   type: string
   createdAt: string
   latestStatus: string
+  model: string | null
+  agentType: string | null
 }
 
 export interface FailureSummary {
@@ -69,5 +71,7 @@ export interface SavedRun {
   status: RunStatus
   totalLatency: number | null
   totalTokens: number | null
+  model: string | null
+  agentType: string | null
   savedAt: string
 }

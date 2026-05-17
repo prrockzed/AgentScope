@@ -35,6 +35,8 @@ public class SavedRunService {
                             run != null ? run.getStatus() : null,
                             run != null ? run.getTotalLatency() : null,
                             run != null ? run.getTotalTokens() : null,
+                            run != null ? run.getModel() : null,
+                            run != null ? run.getAgentType() : null,
                             saved.getSavedAt()
                     );
                 })
@@ -76,6 +78,8 @@ public class SavedRunService {
                 run != null ? run.getStatus() : null,
                 run != null ? run.getTotalLatency() : null,
                 run != null ? run.getTotalTokens() : null,
+                run != null ? run.getModel() : null,
+                run != null ? run.getAgentType() : null,
                 saved.getSavedAt()
         );
     }
