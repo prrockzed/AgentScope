@@ -98,7 +98,7 @@ interface Props {
 }
 
 export function RunsActivityChart({ runs, isLoading, onRefresh }: Props) {
-  const [gran, setGran] = useState<Granularity>('Daily')
+  const [gran, setGran] = useState<Granularity>('Hourly')
   const [offset, setOffset] = useState(0)
   const [clientNow, setClientNow] = useState<Date | null>(null)
 
