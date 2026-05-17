@@ -42,6 +42,12 @@ export interface RegressionTest {
   latestStatus: string
 }
 
+export interface FailureSummary {
+  reason: string
+  count: number
+  lastSeenAt: string
+}
+
 export interface SavedRun {
   savedRunId: string
   runId: string

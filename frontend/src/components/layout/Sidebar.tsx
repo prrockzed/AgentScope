@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, Bookmark, FlaskConical } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -10,6 +10,7 @@ const nav = [
   { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
+  { href: '/failures', label: 'Failures', icon: AlertTriangle },
 ]
 
 export function Sidebar() {

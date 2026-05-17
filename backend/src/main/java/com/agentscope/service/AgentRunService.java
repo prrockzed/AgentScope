@@ -2,6 +2,7 @@ package com.agentscope.service;
 
 import com.agentscope.dto.AgentRunDto;
 import com.agentscope.dto.CreateRunRequest;
+import com.agentscope.dto.FailureSummaryDto;
 import com.agentscope.exception.ResourceNotFoundException;
 import com.agentscope.model.AgentRun;
 import com.agentscope.repository.AgentRunRepository;
@@ -74,6 +75,16 @@ public class AgentRunService {
         AgentRun run = agentRunRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + id));
         return toDto(run);
+    }
+
+    public List<FailureSummaryDto> getFailureSummary() {
+        return agentRunRepository.findFailureSummary().stream()
+                .map(row -> new FailureSummaryDto(
+                        (String)  row[0],
+                        (Long)    row[1],
+                        (Instant) row[2]
+                ))
+                .toList();
     }
 
     public AgentRunDto replayRun(UUID originalId) {

@@ -1,4 +1,4 @@
-import type { AgentRun, RegressionTest, SavedRun, TraceStep } from '@/types'
+import type { AgentRun, FailureSummary, RegressionTest, SavedRun, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -66,4 +66,8 @@ export async function saveRun(id: string): Promise<SavedRun> {
 export async function unsaveRun(id: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/runs/${id}/save`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Unsave run failed')
+}
+
+export async function getFailureSummary(): Promise<FailureSummary[]> {
+  return fetcher<FailureSummary[]>('/api/failures/summary')
 }
