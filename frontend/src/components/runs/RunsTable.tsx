@@ -211,7 +211,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
             <button
               onClick={clearAll}
               className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-muted)', ...inputStyle }}
+              style={{ ...inputStyle, color: 'var(--text-muted)' }}
             >
               <X size={13} />
               Clear
