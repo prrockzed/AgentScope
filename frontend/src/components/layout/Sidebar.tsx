@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/runs', label: 'Runs', icon: Activity },
-  { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/models', label: 'Models', icon: Cpu },
+  { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
