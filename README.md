@@ -23,7 +23,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Baseline comparison & regression scoring** — every replay run is automatically scored against its original: latency delta, token delta, and retry delta are computed and combined into a regression score (0.0 = improvement, 1.0 = severe regression); the `/evaluations` Comparisons tab shows colour-coded delta cells (red = regressed, green = improved) and a score badge per comparison; comparisons are idempotent — replaying twice never creates a duplicate row
 - **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
 - **Optimization Advisor** — after every run, rule-based heuristics automatically fire and write actionable suggestions (latency, retries, token usage, failure type); on demand, click "Analyse with AI" in the trace viewer to call the Groq API (`llama-3.3-70b-versatile`) for deeper AI-powered suggestions; all suggestions live on the `/optimizations` page with severity badges, category labels, and per-run filtering; once AI analysis is done the button turns green and links directly to the AI Analysis tab
-- **Operational memory** — every completed run is automatically recorded into a pattern library: successful runs upsert into `successful_patterns` (rolling average latency and tokens per task/agent/model combo); failed runs upsert into `failure_patterns` (keyed by task, agent, model, and failure reason); the `/memory` page shows both tables sorted by occurrence count so you can immediately see which inputs reliably work and which failure modes dominate; existing run history is backfilled automatically on first start
+- **Operational Knowledge Base** — every completed run feeds a growing intelligence layer visible on the `/knowledge` page: successful and failed workflow patterns are recorded with rolling-average latency and token stats; per-model aggregate stats (total runs, success rate, avg latency, avg tokens) show objectively which models perform best with colour-coded badges; optimization suggestions are aggregated by category so recurring problem types surface immediately; before each run the backend assembles a context string from prior patterns for that exact task and injects it into the agent's prompt so agents are guided by what the system already knows — on a fresh database nothing is injected and the system learns progressively; all four data sets are backfilled automatically from existing run history on first start
 - **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
 
 ---
@@ -62,7 +62,8 @@ PostgreSQL  ◄─────────────────────�
 8. Spring Boot runs eval generation — if the run failed, a regression test and a failing evaluation are created automatically; if the run succeeded and a regression test already exists for that task, a passing evaluation is recorded
 9. Spring Boot runs the Optimization Advisor — rule-based heuristics fire automatically and write 0–N suggestions to `optimization_suggestions`; on demand the user can also trigger AI analysis via Groq
 10. If the run is a replay, Spring Boot computes a regression score against the baseline run — latency/token/retry deltas are stored in `regression_results` alongside a weighted score from 0.0 to 1.0
-11. Spring Boot records the run into the memory system — successful runs upsert into `successful_patterns` (rolling avg latency + tokens); failed runs upsert into `failure_patterns` (keyed by failure reason); both are visible on the `/memory` page
+11. Spring Boot records the run into the knowledge base — successful runs upsert into `successful_patterns` (rolling avg latency + tokens); failed runs upsert into `failure_patterns` (keyed by failure reason); model stats are upserted into `model_insights` (rolling avg latency + tokens, success/failure counts); all four sections are visible on the `/knowledge` page
+12. Before the next run on the same task, the backend queries the knowledge base and prepends a context block to the agent's prompt — so agents improve over time without any code changes
 
 ---
 
@@ -208,6 +209,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `regression_results` | One row per replay run — latency/token/retry deltas against baseline, weighted regression score 0.0–1.0 |
 | `successful_patterns` | Aggregated successful run patterns — rolling avg latency and tokens per `(task, agent_type, model)` combo with occurrence count |
 | `failure_patterns` | Aggregated failure patterns — occurrence count per `(task, agent_type, model, failure_reason)` combo |
+| `model_insights` | Per-model aggregate stats — total runs, success/failure counts, rolling avg latency and tokens; UNIQUE on `model`; backfilled from existing runs on first start |
 
 **Inspect the database directly:**
 ```bash
@@ -249,6 +251,8 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `POST` | `/api/runs/{id}/optimizations/ai` | Trigger on-demand Groq AI analysis for a run (idempotent) |
 | `GET` | `/api/regression-results` | List all regression comparison results newest-first (denormalised: includes task, models, agent types) |
 | `GET` | `/api/memory/patterns` | Returns `{ successfulPatterns, failurePatterns }` — both lists sorted by occurrence count descending |
+| `GET` | `/api/knowledge/summary` | Returns `{ successfulPatterns, failurePatterns, modelInsights, optimizationLearnings }` — the full knowledge base in one call |
+| `GET` | `/api/knowledge/context` | Returns the knowledge context string for a given `?task=` (and optional `&model=`); empty string if no prior history exists for that task |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -293,23 +297,23 @@ AgentScope/
 │           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /memory
-│       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, ...)
+│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /knowledge, /memory
+│       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, knowledge/ModelInsightsTable, knowledge/OptimizationLearningsTable, layout)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, ...)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern)
-│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, SuccessfulPatternDto, FailurePatternDto, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, SuccessfulPatternRepository, FailurePatternRepository, ...)
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, KnowledgeController)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService, KnowledgeService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern, ModelInsight)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, SuccessfulPatternDto, FailurePatternDto, ModelInsightDto, OptimizationLearningDto, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, SuccessfulPatternRepository, FailurePatternRepository, ModelInsightRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V15 Flyway SQL migrations
+│       └── db/migration/        V1–V17 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute, GET /agents, GET /models endpoints

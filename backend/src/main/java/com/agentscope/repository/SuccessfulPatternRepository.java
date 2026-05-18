@@ -12,4 +12,6 @@ public interface SuccessfulPatternRepository extends JpaRepository<SuccessfulPat
     Optional<SuccessfulPattern> findByTaskAndAgentTypeAndModel(String task, String agentType, String model);
 
     List<SuccessfulPattern> findAllByOrderByOccurrenceCountDesc();
+
+    List<SuccessfulPattern> findByTaskOrderByOccurrenceCountDesc(String task);
 }

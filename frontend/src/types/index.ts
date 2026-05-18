@@ -126,3 +126,28 @@ export interface FailurePattern {
   lastSeen: string
   createdAt: string
 }
+
+export interface ModelInsight {
+  id: string
+  model: string
+  totalRuns: number
+  successCount: number
+  failureCount: number
+  successRate: number
+  avgLatency: number | null
+  avgTokens: number | null
+  lastUpdated: string
+}
+
+export interface OptimizationLearning {
+  category: string
+  count: number
+  topSuggestion: string
+}
+
+export interface KnowledgeSummary {
+  successfulPatterns: SuccessfulPattern[]
+  failurePatterns: FailurePattern[]
+  modelInsights: ModelInsight[]
+  optimizationLearnings: OptimizationLearning[]
+}

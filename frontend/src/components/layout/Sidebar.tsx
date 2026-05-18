@@ -27,7 +27,7 @@ const groups = [
       { href: '/evaluations', label: 'Evaluations', icon: FlaskConical },
       { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
       { href: '/optimizations', label: 'Optimizations', icon: Lightbulb },
-      { href: '/memory', label: 'Memory', icon: Brain },
+      { href: '/knowledge', label: 'Knowledge Base', icon: Brain },
     ],
   },
 ]

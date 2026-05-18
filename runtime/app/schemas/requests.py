@@ -8,3 +8,4 @@ class ExecuteRequest(BaseModel):
     run_id: Optional[str] = None
     agent_type: Optional[str] = "tool_agent"
     model: Optional[str] = None
+    knowledge_context: Optional[str] = None

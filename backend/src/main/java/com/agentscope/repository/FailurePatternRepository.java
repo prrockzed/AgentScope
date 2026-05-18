@@ -13,4 +13,6 @@ public interface FailurePatternRepository extends JpaRepository<FailurePattern, 
             String task, String agentType, String model, String failureReason);
 
     List<FailurePattern> findAllByOrderByOccurrenceCountDesc();
+
+    List<FailurePattern> findByTaskOrderByOccurrenceCountDesc(String task);
 }

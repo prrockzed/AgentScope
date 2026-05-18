@@ -11,6 +11,7 @@ function getTitle(pathname: string): string {
   if (pathname.startsWith('/failures')) return 'Failures'
   if (pathname.startsWith('/settings')) return 'Settings'
   if (pathname.startsWith('/optimizations')) return 'Optimizations'
+  if (pathname.startsWith('/knowledge')) return 'Knowledge'
   if (pathname.startsWith('/memory')) return 'Memory'
   if (pathname.match(/^\/runs\/[^/]+/)) return 'Trace Viewer'
   if (pathname.startsWith('/runs')) return 'Runs'

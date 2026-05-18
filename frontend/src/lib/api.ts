@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentRun, FailurePattern, FailureSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
+import type { AgentDefinition, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -102,4 +102,8 @@ export async function getMemoryPatterns(): Promise<{
   failurePatterns: FailurePattern[]
 }> {
   return fetcher('/api/memory/patterns')
+}
+
+export async function getKnowledgeSummary(): Promise<KnowledgeSummary> {
+  return fetcher('/api/knowledge/summary')
 }

@@ -33,6 +33,7 @@ public class AgentRunService {
     private final OptimizationService optimizationService;
     private final RegressionComparisonService regressionComparisonService;
     private final MemoryService memoryService;
+    private final KnowledgeService knowledgeService;
     private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
@@ -44,6 +45,7 @@ public class AgentRunService {
                            OptimizationService optimizationService,
                            RegressionComparisonService regressionComparisonService,
                            MemoryService memoryService,
+                           KnowledgeService knowledgeService,
                            MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
@@ -52,6 +54,7 @@ public class AgentRunService {
         this.optimizationService = optimizationService;
         this.regressionComparisonService = regressionComparisonService;
         this.memoryService = memoryService;
+        this.knowledgeService = knowledgeService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -136,7 +139,8 @@ public class AgentRunService {
         Integer tokens = null;
 
         try {
-            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model);
+            String knowledgeContext = knowledgeService.getKnowledgeContext(task, model);
+            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model, knowledgeContext);
             RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
                     runtimeBaseUrl + "/execute",
                     runtimeRequest,
@@ -168,6 +172,7 @@ public class AgentRunService {
         optimizationService.analyze(runId);
         regressionComparisonService.compareIfReplay(runId);
         memoryService.record(runId);
+        knowledgeService.recordModelInsight(runId);
         recordMetrics(runId, finalStatus, finalLatency, finalTokens);
     }
 
@@ -219,7 +224,7 @@ public class AgentRunService {
         );
     }
 
-    private record RuntimeExecuteRequest(String task, String run_id, String agent_type, String model) {}
+    private record RuntimeExecuteRequest(String task, String run_id, String agent_type, String model, String knowledge_context) {}
 
     private record RuntimeExecuteResponse(
             String status,

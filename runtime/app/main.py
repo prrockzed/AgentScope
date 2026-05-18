@@ -52,8 +52,17 @@ def execute(request: ExecuteRequest):
     model = request.model
     if not model:
         raise HTTPException(status_code=422, detail="model must be specified")
+
+    effective_task = request.task
+    if request.knowledge_context:
+        effective_task = (
+            f"[Context from previous runs on this task]\n"
+            f"{request.knowledge_context}\n\n"
+            f"[Task]\n{request.task}"
+        )
+
     result = REGISTRY[agent_type].run_fn(
-        task=request.task,
+        task=effective_task,
         run_id=run_id,
         tracer=tracer,
         model=model,
