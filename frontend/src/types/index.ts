@@ -85,3 +85,21 @@ export interface OptimizationSuggestion {
   source: 'RULE' | 'AI'
   createdAt: string
 }
+
+export interface RegressionResult {
+  id: string
+  baselineRunId: string
+  candidateRunId: string
+  task: string | null
+  baselineModel: string | null
+  candidateModel: string | null
+  baselineAgentType: string | null
+  candidateAgentType: string | null
+  latencyDelta: number | null
+  tokenDelta: number | null
+  retryDelta: number | null
+  baselineStatus: string
+  candidateStatus: string
+  score: number
+  createdAt: string
+}

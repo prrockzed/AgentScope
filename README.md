@@ -20,6 +20,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Side-by-side run comparison** — diff view aligns steps by number and highlights where status, event type, or tool name changed; a summary banner shows how many steps differ
 - **Automatic failure detection** — every failed run is tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); surfaced via a red banner, highlighted timeline steps, and graph node outlines
 - **Autonomous eval generation** — failed runs automatically create a regression test and a failing evaluation; when the same task later passes, the evaluation flips to passing; the Evaluations page tracks all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status
+- **Baseline comparison & regression scoring** — every replay run is automatically scored against its original: latency delta, token delta, and retry delta are computed and combined into a regression score (0.0 = improvement, 1.0 = severe regression); the `/evaluations` Comparisons tab shows colour-coded delta cells (red = regressed, green = improved) and a score badge per comparison; comparisons are idempotent — replaying twice never creates a duplicate row
 - **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
 - **Optimization Advisor** — after every run, rule-based heuristics automatically fire and write actionable suggestions (latency, retries, token usage, failure type); on demand, click "Analyse with AI" in the trace viewer to call the Groq API (`llama-3.3-70b-versatile`) for deeper AI-powered suggestions; all suggestions live on the `/optimizations` page with severity badges, category labels, and per-run filtering; once AI analysis is done the button turns green and links directly to the AI Analysis tab
 - **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
@@ -59,6 +60,7 @@ PostgreSQL  ◄─────────────────────�
 7. Spring Boot runs failure detection — if the run failed, it tags the run with a reason code
 8. Spring Boot runs eval generation — if the run failed, a regression test and a failing evaluation are created automatically; if the run succeeded and a regression test already exists for that task, a passing evaluation is recorded
 9. Spring Boot runs the Optimization Advisor — rule-based heuristics fire automatically and write 0–N suggestions to `optimization_suggestions`; on demand the user can also trigger AI analysis via Groq
+10. If the run is a replay, Spring Boot computes a regression score against the baseline run — latency/token/retry deltas are stored in `regression_results` alongside a weighted score from 0.0 to 1.0
 
 ---
 
@@ -201,6 +203,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `regression_tests` | Auto-generated test cases from failures — input, expected failure reason, type (`AUTO`/`MANUAL`) |
 | `saved_runs` | Bookmarked run references — pointer to `agent_runs`, timestamp of when it was saved |
 | `optimization_suggestions` | Rule-based and AI-generated suggestions per run — category, severity, suggestion text, source (`RULE`\|`AI`) |
+| `regression_results` | One row per replay run — latency/token/retry deltas against baseline, weighted regression score 0.0–1.0 |
 
 **Inspect the database directly:**
 ```bash
@@ -240,6 +243,7 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/optimizations` | List all optimization suggestions newest-first |
 | `GET` | `/api/runs/{id}/optimizations` | List optimization suggestions for a single run |
 | `POST` | `/api/runs/{id}/optimizations/ai` | Trigger on-demand Groq AI analysis for a run (idempotent) |
+| `GET` | `/api/regression-results` | List all regression comparison results newest-first (denormalised: includes task, models, agent types) |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -284,23 +288,23 @@ AgentScope/
 │           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations, /optimizations
-│       ├── components/          UI components (runs, traces, analytics, evaluations, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, ...)
+│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations
+│       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionTestsTable, evaluations/RegressionResultsTable, layout)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, ...)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion)
-│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, ...)
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, ...)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, ...)
 │       ├── config/              CORS, beans, WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V12 Flyway SQL migrations
+│       └── db/migration/        V1–V13 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute, GET /agents, GET /models endpoints
