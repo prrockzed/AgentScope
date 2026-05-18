@@ -50,6 +50,33 @@ def _run(
     }
 
 
+_DETAILS = {
+    "steps": [
+        {
+            "name": "LLM Call",
+            "eventType": "LLM_RESPONSE",
+            "description": "Sends the task directly to the LLM as a user message with no system instructions or tools.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Run Complete",
+            "eventType": "RUN_COMPLETED",
+            "description": "Returns the LLM response immediately. Always marks the run as SUCCESS.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+    ],
+    "toolsAvailable": [],
+    "maxRetries": None,
+    "retryNote": None,
+    "workflowType": "single_call",
+}
+
 register(AgentDefinition(
     id="direct_answer",
     name="Direct Answer",
@@ -58,4 +85,5 @@ register(AgentDefinition(
         "— no tools, no retries. Fastest option."
     ),
     run_fn=_run,
+    details=_DETAILS,
 ))

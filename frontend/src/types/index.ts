@@ -151,3 +151,24 @@ export interface KnowledgeSummary {
   modelInsights: ModelInsight[]
   optimizationLearnings: OptimizationLearning[]
 }
+
+export interface AgentStep {
+  name: string
+  eventType: string
+  description: string
+  prompt: string | null
+  promptLabel: string | null
+  tools: string[]
+  conditional: boolean
+}
+
+export interface AgentDetail {
+  id: string
+  name: string
+  description: string
+  steps: AgentStep[]
+  toolsAvailable: string[]
+  maxRetries: number | null
+  retryNote: string | null
+  workflowType: string
+}

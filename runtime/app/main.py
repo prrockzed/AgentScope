@@ -10,7 +10,7 @@ from app.models import SUPPORTED_MODELS
 from app.schemas.requests import ExecuteRequest
 from app.schemas.responses import ExecuteResponse, TraceStepResponse
 from app.tracing.tracer import Tracer
-from app.agents import REGISTRY, list_agents  # noqa: importing this package registers all built-in agents
+from app.agents import REGISTRY, get_agent, list_agents  # noqa: importing this package registers all built-in agents
 
 app = FastAPI(title="AgentScope Runtime", version="1.0.0")
 Instrumentator().instrument(app).expose(app)
@@ -24,6 +24,14 @@ def health():
 @app.get("/agents")
 def get_agents():
     return list_agents()
+
+
+@app.get("/agents/{agent_id}")
+def get_agent_detail(agent_id: str):
+    detail = get_agent(agent_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"Unknown agent: {agent_id}")
+    return detail
 
 
 @app.get("/models")

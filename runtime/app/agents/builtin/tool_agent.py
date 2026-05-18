@@ -368,6 +368,73 @@ def _run(
     }
 
 
+_DETAILS = {
+    "steps": [
+        {
+            "name": "Planner",
+            "eventType": "LLM_RESPONSE",
+            "description": "Chooses which tool to call and formats its arguments as a JSON object.",
+            "prompt": (
+                "You are an agent planner. Given a task, choose ONE tool and specify its inputs.\n\n"
+                "Available tools:\n"
+                "- calculator: Evaluate a mathematical expression\n"
+                "- fetch_website: Download and return the text content of a web page\n"
+                "- file_reader: Read the contents of a .txt, .md, or .pdf file\n\n"
+                "Respond ONLY with a JSON object (no markdown, no extra text):\n"
+                '{"reasoning": "<why you chose this tool>", "tool": "<tool_name>", "tool_input": {<tool arguments>}}'
+            ),
+            "promptLabel": "System Prompt",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Tool Executor",
+            "eventType": "TOOL_CALL",
+            "description": "Runs the selected tool with the planned arguments. Emits RETRY_TRIGGERED if this is a retry attempt.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": ["calculator", "fetch_website", "file_reader"],
+            "conditional": False,
+        },
+        {
+            "name": "Summarizer",
+            "eventType": "LLM_RESPONSE",
+            "description": "Converts the raw tool output into a concise, helpful answer for the original task.",
+            "prompt": (
+                "Task: {task}\n\n"
+                "Tool used: {tool_name}\n"
+                "Tool output:\n{tool_output}\n\n"
+                "Please provide a concise, helpful summary that directly answers the task."
+            ),
+            "promptLabel": "Prompt Template",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Validator",
+            "eventType": "VALIDATION",
+            "description": "Checks the summary for empty or malformed output. Emits VALIDATION_FAILURE and triggers a retry if it fails.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Output Assembler",
+            "eventType": "RUN_COMPLETED",
+            "description": "Assembles the final output and marks the run SUCCESS or FAILED.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+    ],
+    "toolsAvailable": ["calculator", "fetch_website", "file_reader"],
+    "maxRetries": 3,
+    "retryNote": "On validation failure the workflow loops back to Tool Executor. After 3 failed attempts the run is marked FAILED.",
+    "workflowType": "langgraph",
+}
+
 register(AgentDefinition(
     id="tool_agent",
     name="Tool Agent",
@@ -376,4 +443,5 @@ register(AgentDefinition(
         "and validates the output. Retries up to 3× on failure."
     ),
     run_fn=_run,
+    details=_DETAILS,
 ))

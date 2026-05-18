@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
+import type { AgentDefinition, AgentDetail, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -24,6 +24,10 @@ export async function getTraces(runId: string): Promise<TraceStep[]> {
 
 export async function getAgents(): Promise<AgentDefinition[]> {
   return fetcher<AgentDefinition[]>('/api/agents')
+}
+
+export async function getAgentDetail(id: string): Promise<AgentDetail> {
+  return fetcher<AgentDetail>(`/api/agents/${id}`)
 }
 
 export async function getModels(): Promise<ModelDefinition[]> {

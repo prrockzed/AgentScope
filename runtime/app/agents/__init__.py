@@ -29,7 +29,7 @@ Usage elsewhere / external projects
 See README.md → "Creating a Custom Agent" for a full walkthrough.
 """
 
-from app.agents.registry import REGISTRY, AgentDefinition, list_agents, register
+from app.agents.registry import REGISTRY, AgentDefinition, get_agent, list_agents, register
 import app.agents.builtin  # noqa: F401 — registers all built-in agents as a side-effect
 
-__all__ = ["AgentDefinition", "REGISTRY", "list_agents", "register"]
+__all__ = ["AgentDefinition", "REGISTRY", "get_agent", "list_agents", "register"]

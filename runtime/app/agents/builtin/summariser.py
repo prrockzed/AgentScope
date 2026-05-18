@@ -95,6 +95,49 @@ def _run(
     }
 
 
+_DETAILS = {
+    "steps": [
+        {
+            "name": "Web Fetch",
+            "eventType": "TOOL_CALL",
+            "description": "If the task contains a URL, fetches and cleans the page content. Skipped if no URL is present.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": ["fetch_website"],
+            "conditional": True,
+        },
+        {
+            "name": "Summarization",
+            "eventType": "LLM_RESPONSE",
+            "description": "Produces a structured summary with a 2\u20133 sentence overview, key points, and takeaways.",
+            "prompt": (
+                "You are a summariser. Produce a concise, structured summary of the following content.\n\n"
+                "Format your response as:\n"
+                "## Summary\n<2-3 sentence overview>\n\n"
+                "## Key Points\n- <point 1>\n- <point 2>\n- ...\n\n"
+                "## Takeaways\n<1-2 key takeaways>\n\n"
+                "Content to summarise:\n{content}"
+            ),
+            "promptLabel": "Prompt Template",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Run Complete",
+            "eventType": "RUN_COMPLETED",
+            "description": "Returns the structured summary. Always marks the run as SUCCESS.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+    ],
+    "toolsAvailable": ["fetch_website"],
+    "maxRetries": None,
+    "retryNote": None,
+    "workflowType": "sequential",
+}
+
 register(AgentDefinition(
     id="summariser",
     name="Summariser",
@@ -103,4 +146,5 @@ register(AgentDefinition(
         "structured summary with key points and takeaways."
     ),
     run_fn=_run,
+    details=_DETAILS,
 ))

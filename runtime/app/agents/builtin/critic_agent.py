@@ -106,6 +106,63 @@ def _run(
     }
 
 
+_DETAILS = {
+    "steps": [
+        {
+            "name": "Generator",
+            "eventType": "LLM_RESPONSE",
+            "description": "Produces an initial draft answer to the task as thoroughly as possible.",
+            "prompt": "Answer the following task as thoroughly as you can:\n\nTask: {task}",
+            "promptLabel": "Prompt Template",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Critic",
+            "eventType": "LLM_RESPONSE",
+            "description": "Reviews the draft answer and identifies inaccuracies, gaps, and areas for improvement.",
+            "prompt": (
+                "You are a critical reviewer. Evaluate the answer below for the given task.\n\n"
+                "Task: {task}\n\n"
+                "Answer to review:\n{initial_answer}\n\n"
+                "Identify any inaccuracies, gaps, or areas for improvement. "
+                "Be specific and constructive."
+            ),
+            "promptLabel": "Prompt Template",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Revisor",
+            "eventType": "LLM_RESPONSE",
+            "description": "Rewrites the answer incorporating all points raised in the critique.",
+            "prompt": (
+                "Rewrite the answer to the task below, incorporating the critique provided.\n\n"
+                "Task: {task}\n\n"
+                "Original answer:\n{initial_answer}\n\n"
+                "Critique:\n{critique}\n\n"
+                "Provide a revised, improved answer that addresses all points raised."
+            ),
+            "promptLabel": "Prompt Template",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Run Complete",
+            "eventType": "RUN_COMPLETED",
+            "description": "Returns the final revised answer. Always marks the run as SUCCESS.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+    ],
+    "toolsAvailable": [],
+    "maxRetries": None,
+    "retryNote": None,
+    "workflowType": "sequential",
+}
+
 register(AgentDefinition(
     id="critic_agent",
     name="Critic Agent",
@@ -114,4 +171,5 @@ register(AgentDefinition(
         "and rewrites it for accuracy and completeness."
     ),
     run_fn=_run,
+    details=_DETAILS,
 ))

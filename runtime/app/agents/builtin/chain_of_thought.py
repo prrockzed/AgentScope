@@ -63,6 +63,39 @@ def _run(
     }
 
 
+_DETAILS = {
+    "steps": [
+        {
+            "name": "Reasoning",
+            "eventType": "LLM_RESPONSE",
+            "description": "Forces the LLM to work through the problem step-by-step before writing a final answer.",
+            "prompt": (
+                "You are a careful reasoning assistant. Before giving your final answer, "
+                "work through the problem step-by-step, labelling each step clearly "
+                "(e.g. 'Step 1:', 'Step 2:', \u2026). "
+                "After your reasoning, write '## Final Answer' followed by a concise, "
+                "definitive response."
+            ),
+            "promptLabel": "System Prompt",
+            "tools": [],
+            "conditional": False,
+        },
+        {
+            "name": "Run Complete",
+            "eventType": "RUN_COMPLETED",
+            "description": "Returns the full reasoning chain and final answer. Always marks the run as SUCCESS.",
+            "prompt": None,
+            "promptLabel": None,
+            "tools": [],
+            "conditional": False,
+        },
+    ],
+    "toolsAvailable": [],
+    "maxRetries": None,
+    "retryNote": None,
+    "workflowType": "single_call",
+}
+
 register(AgentDefinition(
     id="chain_of_thought",
     name="Chain of Thought",
@@ -71,4 +104,5 @@ register(AgentDefinition(
         "Good for logic, maths, and multi-part questions."
     ),
     run_fn=_run,
+    details=_DETAILS,
 ))

@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Callable
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional
 
 from app.tracing.tracer import Tracer
 
@@ -10,6 +10,7 @@ class AgentDefinition:
     name: str
     description: str
     run_fn: Callable[[str, str, Tracer, str, str], dict[str, Any]]
+    details: Optional[dict] = field(default=None)
 
 
 REGISTRY: dict[str, AgentDefinition] = {}
@@ -24,3 +25,13 @@ def list_agents() -> list[dict]:
         {"id": d.id, "name": d.name, "description": d.description}
         for d in REGISTRY.values()
     ]
+
+
+def get_agent(agent_id: str) -> Optional[dict]:
+    defn = REGISTRY.get(agent_id)
+    if defn is None:
+        return None
+    result: dict = {"id": defn.id, "name": defn.name, "description": defn.description}
+    if defn.details:
+        result.update(defn.details)
+    return result
