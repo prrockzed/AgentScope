@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentRun, FailureSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, TraceStep } from '@/types'
+import type { AgentDefinition, AgentRun, FailurePattern, FailureSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -95,4 +95,11 @@ export async function analyzeWithAI(runId: string): Promise<void> {
 
 export async function getRegressionResults(): Promise<RegressionResult[]> {
   return fetcher<RegressionResult[]>('/api/regression-results')
+}
+
+export async function getMemoryPatterns(): Promise<{
+  successfulPatterns: SuccessfulPattern[]
+  failurePatterns: FailurePattern[]
+}> {
+  return fetcher('/api/memory/patterns')
 }

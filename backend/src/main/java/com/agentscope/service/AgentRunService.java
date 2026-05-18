@@ -32,6 +32,7 @@ public class AgentRunService {
     private final EvaluationService evaluationService;
     private final OptimizationService optimizationService;
     private final RegressionComparisonService regressionComparisonService;
+    private final MemoryService memoryService;
     private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
@@ -42,6 +43,7 @@ public class AgentRunService {
                            EvaluationService evaluationService,
                            OptimizationService optimizationService,
                            RegressionComparisonService regressionComparisonService,
+                           MemoryService memoryService,
                            MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
@@ -49,6 +51,7 @@ public class AgentRunService {
         this.evaluationService = evaluationService;
         this.optimizationService = optimizationService;
         this.regressionComparisonService = regressionComparisonService;
+        this.memoryService = memoryService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -164,6 +167,7 @@ public class AgentRunService {
         evaluationService.onRunComplete(runId);
         optimizationService.analyze(runId);
         regressionComparisonService.compareIfReplay(runId);
+        memoryService.record(runId);
         recordMetrics(runId, finalStatus, finalLatency, finalTokens);
     }
 

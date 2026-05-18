@@ -103,3 +103,26 @@ export interface RegressionResult {
   score: number
   createdAt: string
 }
+
+export interface SuccessfulPattern {
+  id: string
+  task: string
+  agentType: string | null
+  model: string | null
+  avgLatency: number | null
+  avgTokens: number | null
+  occurrenceCount: number
+  lastSeen: string
+  createdAt: string
+}
+
+export interface FailurePattern {
+  id: string
+  task: string
+  agentType: string | null
+  model: string | null
+  failureReason: string | null
+  occurrenceCount: number
+  lastSeen: string
+  createdAt: string
+}
