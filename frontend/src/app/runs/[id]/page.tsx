@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
 import { useReplayRun } from '@/hooks/useReplayRun'
-import { useGenerateEval } from '@/hooks/useGenerateEval'
 import { useIsRunSaved } from '@/hooks/useIsRunSaved'
 import { useSaveRun } from '@/hooks/useSaveRun'
 import { useRunOptimizations } from '@/hooks/useRunOptimizations'
@@ -41,8 +40,7 @@ export default function TraceViewerPage({ params }: Props) {
   useTraceWebSocket(id, isRunning ?? false)
 
   const replay = useReplayRun()
-  const generateEvalMutation = useGenerateEval()
-  const { data: savedData } = useIsRunSaved(id)
+const { data: savedData } = useIsRunSaved(id)
   const isSaved = savedData?.saved ?? false
   const { save: saveRunMutation, unsave: unsaveRunMutation } = useSaveRun(id)
   const { data: runOptimizations } = useRunOptimizations(id)
@@ -130,17 +128,6 @@ export default function TraceViewerPage({ params }: Props) {
 
             {/* Row 2: Action buttons */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Generate Eval button — only for failed runs */}
-              {run.status === 'FAILED' && (
-                <button
-                  disabled={generateEvalMutation.isPending}
-                  onClick={() => generateEvalMutation.mutate(run.id)}
-                  className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#4c0519', color: '#ef4444' }}
-                >
-                  {generateEvalMutation.isPending ? 'Saving...' : 'Generate Eval'}
-                </button>
-              )}
 
               {/* Save Run button — hidden while RUNNING */}
               {run.status !== 'RUNNING' && (

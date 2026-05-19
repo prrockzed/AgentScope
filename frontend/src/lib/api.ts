@@ -56,11 +56,6 @@ export async function getRegressionTests(): Promise<RegressionTest[]> {
   return fetcher<RegressionTest[]>('/api/regression-tests')
 }
 
-export async function generateEval(runId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/runs/${runId}/eval`, { method: 'POST' })
-  if (!res.ok) throw new Error('Generate eval failed')
-}
-
 export async function getSavedRuns(): Promise<SavedRun[]> {
   return fetcher<SavedRun[]>('/api/saved-runs')
 }
