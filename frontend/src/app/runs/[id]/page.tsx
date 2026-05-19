@@ -152,7 +152,7 @@ export default function TraceViewerPage({ params }: Props) {
                   </button>
                 )}
 
-                {/* Analyse with AI button — only for completed runs */}
+                {/* Get AI Suggestions button — only for completed runs */}
                 {run.status !== 'RUNNING' && (
                   hasAISuggestions ? (
                     <button
@@ -160,7 +160,7 @@ export default function TraceViewerPage({ params }: Props) {
                       className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
                       style={{ backgroundColor: '#14291a', color: '#4ade80' }}
                     >
-                      Analysed
+                      AI Suggestions Added
                     </button>
                   ) : (
                     <button
@@ -169,7 +169,7 @@ export default function TraceViewerPage({ params }: Props) {
                       className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                     >
-                      {analyzeAI.isPending ? 'Analysing…' : 'Analyse with AI'}
+                      {analyzeAI.isPending ? 'Generating…' : 'Get AI Suggestions'}
                     </button>
                   )
                 )}
