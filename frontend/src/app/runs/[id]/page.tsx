@@ -47,7 +47,9 @@ export default function TraceViewerPage({ params }: Props) {
   const { save: saveRunMutation, unsave: unsaveRunMutation } = useSaveRun(id)
   const { data: runOptimizations } = useRunOptimizations(id)
   const analyzeAI = useAnalyzeWithAI(id)
-  const hasAISuggestions = runOptimizations?.some((s) => s.source === 'AI') ?? false
+  const ruleBasedCount = runOptimizations?.filter((s) => s.source === 'RULE').length ?? 0
+  const aiCount = runOptimizations?.filter((s) => s.source === 'AI').length ?? 0
+  const hasAISuggestions = aiCount > 0
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
@@ -141,35 +143,47 @@ export default function TraceViewerPage({ params }: Props) {
                   {replay.isPending ? 'Replaying...' : 'Replay Run'}
                 </button>
 
-                {/* Suggestions chip — only when suggestions exist and run is not running */}
-                {run.status !== 'RUNNING' && (runOptimizations?.length ?? 0) > 0 && (
+                {/* Rule-based optimization suggestions */}
+                {run.status !== 'RUNNING' && ruleBasedCount > 0 && (
                   <button
                     onClick={() => router.push(`/optimizations?run=${run.id}`)}
-                    className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
-                    style={{ backgroundColor: '#2e1065', color: '#a78bfa' }}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                    style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
                   >
-                    {runOptimizations!.length} Suggestion{runOptimizations!.length !== 1 ? 's' : ''}
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                    >
+                      {ruleBasedCount}
+                    </span>
+                    Rule-based Optimization{ruleBasedCount !== 1 ? 's' : ''}
                   </button>
                 )}
 
-                {/* Get AI Suggestions button — only for completed runs */}
+                {/* AI optimization suggestions */}
                 {run.status !== 'RUNNING' && (
                   hasAISuggestions ? (
                     <button
                       onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
-                      className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
-                      style={{ backgroundColor: '#14291a', color: '#4ade80' }}
+                      className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                      style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
                     >
-                      AI Suggestions Added
+                      <span
+                        className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                        style={{ backgroundColor: '#166534', color: '#86efac' }}
+                      >
+                        {aiCount}
+                      </span>
+                      AI Optimization{aiCount !== 1 ? 's' : ''}
                     </button>
                   ) : (
                     <button
                       disabled={analyzeAI.isPending}
                       onClick={() => analyzeAI.mutate()}
-                      className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                      className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
                     >
-                      {analyzeAI.isPending ? 'Generating…' : 'Get AI Suggestions'}
+                      {analyzeAI.isPending ? 'Generating…' : 'Get AI Optimizations'}
                     </button>
                   )
                 )}
