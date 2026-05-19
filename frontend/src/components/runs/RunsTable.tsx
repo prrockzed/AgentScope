@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import Link from 'next/link'
-import { ArrowRight, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -75,6 +75,7 @@ interface Props {
 }
 
 export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -379,7 +380,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
           <Table>
             <TableHeader>
               <TableRow style={{ borderBottom: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}>
-                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', 'Agent', ''].map((h) => (
+                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', 'Agent'].map((h) => (
                   <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </TableHead>
@@ -391,7 +392,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
               ) : filteredRuns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                  <TableCell colSpan={8} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                     {hasAnyFilter ? 'No runs match your search or filters.' : 'No runs yet. Submit your first task above.'}
                   </TableCell>
                 </TableRow>
@@ -399,8 +400,11 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 pageRuns.map((run) => (
                   <TableRow
                     key={run.id}
-                    className="transition-colors"
+                    onClick={() => router.push(`/runs/${run.id}`)}
+                    className="transition-colors cursor-pointer"
                     style={{ borderBottom: '1px solid var(--border-custom)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
                   >
                     <TableCell
                       className="font-mono text-xs"
@@ -414,13 +418,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                       title={run.task ?? ''}
                     >
                       {run.task ? (
-                        <Link
-                          href={`/runs/${run.id}`}
-                          className="hover:underline"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {run.task.length > 60 ? run.task.slice(0, 60) + '…' : run.task}
-                        </Link>
+                        run.task.length > 60 ? run.task.slice(0, 60) + '…' : run.task
                       ) : (
                         <span style={{ color: 'var(--text-muted)' }}>—</span>
                       )}
@@ -442,15 +440,6 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                     </TableCell>
                     <TableCell className="text-sm" style={{ color: 'var(--text-primary)' }}>
                       {formatAgentType(run.agentType)}
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        href={`/runs/${run.id}`}
-                        className="flex items-center justify-center"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        <ArrowRight size={16} />
-                      </Link>
                     </TableCell>
                   </TableRow>
                 ))
