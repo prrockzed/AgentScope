@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRun } from '@/hooks/useRun'
 import { useTraces } from '@/hooks/useTraces'
@@ -18,7 +18,7 @@ import { ExecutionGraph } from '@/components/graph/ExecutionGraph'
 import { DiffView } from '@/components/traces/DiffView'
 import { LiveIndicator } from '@/components/traces/LiveIndicator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatMs, formatRelativeTime, truncateId } from '@/lib/utils'
+import { formatMs, formatRelativeTime } from '@/lib/utils'
 import type { TraceStep } from '@/types'
 
 interface Props {
@@ -53,6 +53,16 @@ export default function TraceViewerPage({ params }: Props) {
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
+  const [idCopied, setIdCopied] = useState(false)
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const copyRunId = useCallback(() => {
+    if (!run) return
+    void navigator.clipboard.writeText(run.id)
+    setIdCopied(true)
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    copyTimeoutRef.current = setTimeout(() => setIdCopied(false), 2000)
+  }, [run])
 
   // Merge persisted + live steps, deduplicate by id, sort by stepNumber
   const allSteps = useMemo(() => {
@@ -89,105 +99,125 @@ export default function TraceViewerPage({ params }: Props) {
           </div>
         ) : run ? (
           <>
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {truncateId(run.id)}
-                </span>
-                <RunStatusBadge status={run.status} />
-                {isRunning && <LiveIndicator />}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Generate Eval button — only for failed runs */}
-                {run.status === 'FAILED' && (
-                  <button
-                    disabled={generateEvalMutation.isPending}
-                    onClick={() => generateEvalMutation.mutate(run.id)}
-                    className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#4c0519', color: '#ef4444' }}
-                  >
-                    {generateEvalMutation.isPending ? 'Saving...' : 'Generate Eval'}
-                  </button>
-                )}
-
-                {/* Save Run button — hidden while RUNNING */}
-                {run.status !== 'RUNNING' && (
-                  <button
-                    disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
-                    onClick={() =>
-                      isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()
-                    }
-                    className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={
-                      isSaved
-                        ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
-                        : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
-                    }
-                  >
-                    {isSaved ? 'Saved' : 'Save Run'}
-                  </button>
-                )}
-
-                {/* Replay button */}
+            {/* Row 1: ID + status */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex items-center gap-2">
                 <button
-                  disabled={run.status === 'RUNNING' || replay.isPending}
+                  onClick={copyRunId}
+                  title="Click to copy run ID"
+                  className="font-mono text-xs rounded px-2 py-1 transition-colors"
+                  style={{
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-custom)',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {run.id}
+                </button>
+                {idCopied && (
+                  <span
+                    className="rounded px-2 py-0.5 text-xs font-medium"
+                    style={{ backgroundColor: '#14532d', color: '#22c55e' }}
+                  >
+                    Copied!
+                  </span>
+                )}
+              </div>
+              <RunStatusBadge status={run.status} />
+              {isRunning && <LiveIndicator />}
+            </div>
+
+            {/* Row 2: Action buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Generate Eval button — only for failed runs */}
+              {run.status === 'FAILED' && (
+                <button
+                  disabled={generateEvalMutation.isPending}
+                  onClick={() => generateEvalMutation.mutate(run.id)}
+                  className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#4c0519', color: '#ef4444' }}
+                >
+                  {generateEvalMutation.isPending ? 'Saving...' : 'Generate Eval'}
+                </button>
+              )}
+
+              {/* Save Run button — hidden while RUNNING */}
+              {run.status !== 'RUNNING' && (
+                <button
+                  disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
                   onClick={() =>
-                    replay.mutate(run.id, {
-                      onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
-                    })
+                    isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()
                   }
                   className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                  style={
+                    isSaved
+                      ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
+                      : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                  }
                 >
-                  {replay.isPending ? 'Replaying...' : 'Replay Run'}
+                  {isSaved ? 'Saved' : 'Save Run'}
                 </button>
+              )}
 
-                {/* Rule-based optimization suggestions */}
-                {run.status !== 'RUNNING' && ruleBasedCount > 0 && (
+              {/* Replay button */}
+              <button
+                disabled={run.status === 'RUNNING' || replay.isPending}
+                onClick={() =>
+                  replay.mutate(run.id, {
+                    onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
+                  })
+                }
+                className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+              >
+                {replay.isPending ? 'Replaying...' : 'Replay Run'}
+              </button>
+
+              {/* Rule-based optimization suggestions */}
+              {run.status !== 'RUNNING' && ruleBasedCount > 0 && (
+                <button
+                  onClick={() => router.push(`/optimizations?run=${run.id}`)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                  style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
+                >
+                  <span
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                    style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                  >
+                    {ruleBasedCount}
+                  </span>
+                  Rule-based Optimization{ruleBasedCount !== 1 ? 's' : ''}
+                </button>
+              )}
+
+              {/* AI optimization suggestions */}
+              {run.status !== 'RUNNING' && (
+                hasAISuggestions ? (
                   <button
-                    onClick={() => router.push(`/optimizations?run=${run.id}`)}
+                    onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
                     className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
-                    style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
+                    style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
                   >
                     <span
                       className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                      style={{ backgroundColor: '#166534', color: '#86efac' }}
                     >
-                      {ruleBasedCount}
+                      {aiCount}
                     </span>
-                    Rule-based Optimization{ruleBasedCount !== 1 ? 's' : ''}
+                    AI Optimization{aiCount !== 1 ? 's' : ''}
                   </button>
-                )}
-
-                {/* AI optimization suggestions */}
-                {run.status !== 'RUNNING' && (
-                  hasAISuggestions ? (
-                    <button
-                      onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
-                      className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
-                      style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
-                    >
-                      <span
-                        className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                        style={{ backgroundColor: '#166534', color: '#86efac' }}
-                      >
-                        {aiCount}
-                      </span>
-                      AI Optimization{aiCount !== 1 ? 's' : ''}
-                    </button>
-                  ) : (
-                    <button
-                      disabled={analyzeAI.isPending}
-                      onClick={() => analyzeAI.mutate()}
-                      className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                    >
-                      {analyzeAI.isPending ? 'Generating…' : 'Get AI Optimizations'}
-                    </button>
-                  )
-                )}
-              </div>
+                ) : (
+                  <button
+                    disabled={analyzeAI.isPending}
+                    onClick={() => analyzeAI.mutate()}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                  >
+                    {analyzeAI.isPending ? 'Generating…' : 'Get AI Optimizations'}
+                  </button>
+                )
+              )}
             </div>
 
             {run.task && (
