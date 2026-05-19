@@ -208,7 +208,7 @@ const { data: savedData } = useIsRunSaved(id)
             </div>
 
             {run.task && (
-              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+              <p className="text-lg font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
                 {run.task}
               </p>
             )}
