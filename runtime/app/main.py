@@ -1,3 +1,4 @@
+import os
 import time
 import uuid
 
@@ -6,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
+from app.llm import LiteLLMChat
 from app.models import SUPPORTED_MODELS
 from app.schemas.requests import ExecuteRequest
 from app.schemas.responses import ExecuteResponse, TraceStepResponse
@@ -36,12 +38,31 @@ def get_agent_detail(agent_id: str):
 
 @app.get("/models")
 def get_models():
+    # Determine which Ollama models are locally pulled
     try:
         resp = requests.get(f"{settings.ollama_base_url}/api/tags", timeout=5)
-        pulled = {m["name"] for m in resp.json().get("models", [])} if resp.status_code == 200 else set()
+        pulled_ollama = {m["name"] for m in resp.json().get("models", [])} if resp.status_code == 200 else set()
     except Exception:
-        pulled = set()
-    return [{**model, "available": model["id"] in pulled} for model in SUPPORTED_MODELS]
+        pulled_ollama = set()
+
+    # Determine which cloud providers have API keys set
+    provider_available = {
+        "ollama": True,  # resolved per-model via pulled_ollama
+        "groq": bool(os.environ.get("GROQ_API_KEY")),
+        "openai": bool(os.environ.get("OPENAI_API_KEY")),
+        "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+    }
+
+    result = []
+    for model in SUPPORTED_MODELS:
+        provider = model["provider"]
+        if provider == "ollama":
+            available = model["id"] in pulled_ollama
+        else:
+            available = provider_available.get(provider, False)
+        result.append({**model, "available": available})
+
+    return result
 
 
 @app.post("/execute", response_model=ExecuteResponse)
@@ -69,12 +90,13 @@ def execute(request: ExecuteRequest):
             f"[Task]\n{request.task}"
         )
 
+    llm = LiteLLMChat(model=model, ollama_base_url=settings.ollama_base_url)
+
     result = REGISTRY[agent_type].run_fn(
         task=effective_task,
         run_id=run_id,
         tracer=tracer,
-        model=model,
-        base_url=settings.ollama_base_url,
+        llm=llm,
     )
 
     total_latency = int((time.time() - start) * 1000)

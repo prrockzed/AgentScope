@@ -22,11 +22,11 @@ import re
 import time
 from typing import Any, Optional
 
-from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
 from app.agents.registry import AgentDefinition, register
+from app.llm import LiteLLMChat
 from app.tools.base import BaseTool
 from app.tools.calculator import CalculatorTool
 from app.tools.fetch_website import FetchWebsiteTool
@@ -89,7 +89,7 @@ def _initial_state(task: str, run_id: str) -> AgentState:
 # Node factories (close over llm / tracer at graph-compile time)
 # ---------------------------------------------------------------------------
 
-def _make_planner(llm: ChatOllama, tracer: Tracer):
+def _make_planner(llm: LiteLLMChat, tracer: Tracer):
     tool_descriptions = "\n".join(
         f"- {t.name}: {t.description}" for t in _TOOL_INSTANCES
     )
@@ -110,8 +110,7 @@ def _make_planner(llm: ChatOllama, tracer: Tracer):
         latency = int((time.time() - t0) * 1000)
 
         content = response.content
-        tokens = getattr(response, "usage_metadata", None)
-        token_count = tokens.get("total_tokens", 0) if tokens else 0
+        token_count = response.usage_metadata.get("total_tokens", 0)
 
         match = re.search(r"\{.*\}", content, re.DOTALL)
         tool_name: Optional[str] = None
@@ -208,7 +207,7 @@ def _make_tool_executor(tracer: Tracer):
     return tool_executor
 
 
-def _make_summarizer(llm: ChatOllama, tracer: Tracer):
+def _make_summarizer(llm: LiteLLMChat, tracer: Tracer):
     def summarizer(state: AgentState) -> AgentState:
         tool_output = state.get("tool_output")
         if tool_output is None:
@@ -227,8 +226,7 @@ def _make_summarizer(llm: ChatOllama, tracer: Tracer):
         latency = int((time.time() - t0) * 1000)
 
         content = response.content
-        tokens = getattr(response, "usage_metadata", None)
-        token_count = tokens.get("total_tokens", 0) if tokens else 0
+        token_count = response.usage_metadata.get("total_tokens", 0)
 
         tracer.emit(
             event_type="LLM_RESPONSE",
@@ -314,7 +312,7 @@ def _route_validator(state: AgentState) -> str:
 # Public helpers
 # ---------------------------------------------------------------------------
 
-def build_workflow(llm: ChatOllama, tracer: Tracer) -> Any:
+def build_workflow(llm: LiteLLMChat, tracer: Tracer) -> Any:
     """Compile and return the LangGraph app for the tool agent.
 
     Useful if you want to inspect the graph, add extra nodes, or run the
@@ -353,10 +351,8 @@ def _run(
     task: str,
     run_id: str,
     tracer: Tracer,
-    model: str,
-    base_url: str,
+    llm: LiteLLMChat,
 ) -> dict[str, Any]:
-    llm = ChatOllama(model=model, base_url=base_url)
     workflow = build_workflow(llm, tracer)
     initial = _initial_state(task=task, run_id=run_id)
     final_state: AgentState = workflow.invoke(initial)

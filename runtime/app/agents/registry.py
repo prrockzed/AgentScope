@@ -9,7 +9,7 @@ class AgentDefinition:
     id: str
     name: str
     description: str
-    run_fn: Callable[[str, str, Tracer, str, str], dict[str, Any]]
+    run_fn: Callable[..., dict[str, Any]]
     details: Optional[dict] = field(default=None)
 
 

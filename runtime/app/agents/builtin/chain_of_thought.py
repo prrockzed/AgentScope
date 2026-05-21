@@ -4,9 +4,8 @@ final answer. Good for logic, maths, and multi-part questions."""
 import time
 from typing import Any
 
-from langchain_ollama import ChatOllama
-
 from app.agents.registry import AgentDefinition, register
+from app.llm import LiteLLMChat
 from app.tracing.tracer import Tracer
 
 _SYSTEM_PROMPT = (
@@ -22,11 +21,8 @@ def _run(
     task: str,
     run_id: str,
     tracer: Tracer,
-    model: str,
-    base_url: str,
+    llm: LiteLLMChat,
 ) -> dict[str, Any]:
-    llm = ChatOllama(model=model, base_url=base_url)
-
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": task},
@@ -37,8 +33,7 @@ def _run(
     latency = int((time.time() - t0) * 1000)
 
     content = response.content
-    tokens = getattr(response, "usage_metadata", None)
-    token_count = tokens.get("total_tokens", 0) if tokens else 0
+    token_count = response.usage_metadata.get("total_tokens", 0)
 
     tracer.emit(
         event_type="LLM_RESPONSE",

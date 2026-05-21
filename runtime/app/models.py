@@ -5,13 +5,28 @@ class ModelInfo(TypedDict):
     id: str
     name: str
     description: str
+    provider: str  # "ollama" | "groq" | "openai" | "anthropic"
 
 
 SUPPORTED_MODELS: list[ModelInfo] = [
-    {"id": "tinyllama:latest", "name": "TinyLlama",     "description": "Ultra-light model for quick prototyping"},
-    {"id": "qwen3:4b",         "name": "Qwen3 4B",      "description": "Fast, balanced — good default for most tasks"},
-    {"id": "qwen3:8b",         "name": "Qwen3 8B",      "description": "Larger Qwen3; better reasoning, slower"},
-    {"id": "llama3.2:3b",      "name": "Llama 3.2 3B",  "description": "Meta's compact Llama — very fast"},
-    {"id": "llama3.1:8b",      "name": "Llama 3.1 8B",  "description": "Meta's capable 8B Llama"},
-    {"id": "mistral:7b",       "name": "Mistral 7B",    "description": "Strong general-purpose model"},
+    # ── Ollama (local) ───────────────────────────────────────────────────────
+    {"id": "tinyllama:latest",  "name": "TinyLlama",     "description": "Ultra-light model for quick prototyping",          "provider": "ollama"},
+    {"id": "qwen3:4b",          "name": "Qwen3 4B",      "description": "Fast, balanced — good default for most tasks",     "provider": "ollama"},
+    {"id": "qwen3:8b",          "name": "Qwen3 8B",      "description": "Larger Qwen3; better reasoning, slower",           "provider": "ollama"},
+    {"id": "llama3.2:3b",       "name": "Llama 3.2 3B",  "description": "Meta's compact Llama — very fast",                "provider": "ollama"},
+    {"id": "llama3.1:8b",       "name": "Llama 3.1 8B",  "description": "Meta's capable 8B Llama",                         "provider": "ollama"},
+    {"id": "mistral:7b",        "name": "Mistral 7B",    "description": "Strong general-purpose model",                    "provider": "ollama"},
+
+    # ── Groq (cloud) ─────────────────────────────────────────────────────────
+    {"id": "groq/llama-3.3-70b-versatile", "name": "Llama 3.3 70B (Groq)", "description": "Fast 70B Llama via Groq — strong reasoning",    "provider": "groq"},
+    {"id": "groq/llama-3.1-8b-instant",    "name": "Llama 3.1 8B (Groq)", "description": "Ultra-fast 8B Llama via Groq",                  "provider": "groq"},
+    {"id": "groq/mixtral-8x7b-32768",      "name": "Mixtral 8x7B (Groq)", "description": "Long-context Mixtral via Groq",                 "provider": "groq"},
+
+    # ── OpenAI (cloud) ───────────────────────────────────────────────────────
+    {"id": "openai/gpt-4o",      "name": "GPT-4o",      "description": "OpenAI's flagship multimodal model",              "provider": "openai"},
+    {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "description": "Fast, affordable GPT-4o variant",                 "provider": "openai"},
+
+    # ── Anthropic (cloud) ────────────────────────────────────────────────────
+    {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "description": "Anthropic's best balance of speed and intelligence", "provider": "anthropic"},
+    {"id": "anthropic/claude-3-haiku-20240307",    "name": "Claude 3 Haiku",    "description": "Anthropic's fastest and most compact model",          "provider": "anthropic"},
 ]

@@ -4,9 +4,8 @@ that evaluates and rewrites it for accuracy and completeness."""
 import time
 from typing import Any
 
-from langchain_ollama import ChatOllama
-
 from app.agents.registry import AgentDefinition, register
+from app.llm import LiteLLMChat
 from app.tracing.tracer import Tracer
 
 
@@ -14,10 +13,8 @@ def _run(
     task: str,
     run_id: str,
     tracer: Tracer,
-    model: str,
-    base_url: str,
+    llm: LiteLLMChat,
 ) -> dict[str, Any]:
-    llm = ChatOllama(model=model, base_url=base_url)
     total_tokens = 0
 
     # --- Step 1: Generator ---
@@ -27,8 +24,7 @@ def _run(
     latency = int((time.time() - t0) * 1000)
 
     initial_answer = gen_response.content
-    tokens = getattr(gen_response, "usage_metadata", None)
-    token_count = tokens.get("total_tokens", 0) if tokens else 0
+    token_count = gen_response.usage_metadata.get("total_tokens", 0)
     total_tokens += token_count
 
     tracer.emit(
@@ -53,8 +49,7 @@ def _run(
     latency = int((time.time() - t0) * 1000)
 
     critique = critic_response.content
-    tokens = getattr(critic_response, "usage_metadata", None)
-    token_count = tokens.get("total_tokens", 0) if tokens else 0
+    token_count = critic_response.usage_metadata.get("total_tokens", 0)
     total_tokens += token_count
 
     tracer.emit(
@@ -79,8 +74,7 @@ def _run(
     latency = int((time.time() - t0) * 1000)
 
     final_answer = revise_response.content
-    tokens = getattr(revise_response, "usage_metadata", None)
-    token_count = tokens.get("total_tokens", 0) if tokens else 0
+    token_count = revise_response.usage_metadata.get("total_tokens", 0)
     total_tokens += token_count
 
     tracer.emit(
