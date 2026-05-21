@@ -5,7 +5,7 @@ class ModelInfo(TypedDict):
     id: str
     name: str
     description: str
-    provider: str  # "ollama" | "groq" | "openai" | "anthropic"
+    provider: str  # "ollama" | "groq" | "openai" | "anthropic" | "gemini"
 
 
 SUPPORTED_MODELS: list[ModelInfo] = [
@@ -23,10 +23,14 @@ SUPPORTED_MODELS: list[ModelInfo] = [
     {"id": "groq/mixtral-8x7b-32768",      "name": "Mixtral 8x7B (Groq)", "description": "Long-context Mixtral via Groq",                 "provider": "groq"},
 
     # ── OpenAI (cloud) ───────────────────────────────────────────────────────
-    {"id": "openai/gpt-4o",      "name": "GPT-4o",      "description": "OpenAI's flagship multimodal model",              "provider": "openai"},
-    {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "description": "Fast, affordable GPT-4o variant",                 "provider": "openai"},
+    {"id": "openai/gpt-4o",      "name": "GPT-4o (Openai)",      "description": "OpenAI's flagship multimodal model",              "provider": "openai"},
+    {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini (Openai)", "description": "Fast, affordable GPT-4o variant",                 "provider": "openai"},
 
     # ── Anthropic (cloud) ────────────────────────────────────────────────────
-    {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "description": "Anthropic's best balance of speed and intelligence", "provider": "anthropic"},
-    {"id": "anthropic/claude-3-haiku-20240307",    "name": "Claude 3 Haiku",    "description": "Anthropic's fastest and most compact model",          "provider": "anthropic"},
+    {"id": "anthropic/claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet (Anthropic)", "description": "Anthropic's best balance of speed and intelligence", "provider": "anthropic"},
+    {"id": "anthropic/claude-3-haiku-20240307",    "name": "Claude 3 Haiku (Anthropic)",    "description": "Anthropic's fastest and most compact model",          "provider": "anthropic"},
+
+    # ── Google Gemini (cloud) ─────────────────────────────────────────────────
+    {"id": "gemini/gemini-2.0-flash",  "name": "Gemini 2.0 Flash (Google)",  "description": "Google's fast, efficient multimodal model",          "provider": "gemini"},
+    {"id": "gemini/gemini-1.5-pro",    "name": "Gemini 1.5 Pro (Google)",    "description": "Google's high-capability long-context model",        "provider": "gemini"},
 ]

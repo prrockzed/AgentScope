@@ -231,7 +231,7 @@ export function NewRunDialog() {
                               className="text-[10px] rounded px-1.5 py-0.5"
                               style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                             >
-                              not pulled
+                              {model.unavailableReason ?? 'not available'}
                             </span>
                           )}
                         </div>
@@ -252,7 +252,7 @@ export function NewRunDialog() {
             <p className="text-xs pl-0.5" style={{ color: 'var(--text-muted)' }}>
               via {pendingAgentName} · {pendingModelName}
               {pendingModel && !pendingModel.available && (
-                <span style={{ color: 'var(--orange-500, #f97316)' }}> — not pulled</span>
+                <span style={{ color: 'var(--orange-500, #f97316)' }}> — {pendingModel.unavailableReason ?? 'not available'}</span>
               )}
             </p>
           </div>

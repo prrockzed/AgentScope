@@ -51,6 +51,7 @@ def get_models():
         "groq": bool(os.environ.get("GROQ_API_KEY")),
         "openai": bool(os.environ.get("OPENAI_API_KEY")),
         "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "gemini": bool(os.environ.get("GEMINI_API_KEY")),
     }
 
     result = []
@@ -58,9 +59,11 @@ def get_models():
         provider = model["provider"]
         if provider == "ollama":
             available = model["id"] in pulled_ollama
+            unavailable_reason = "not pulled" if not available else None
         else:
             available = provider_available.get(provider, False)
-        result.append({**model, "available": available})
+            unavailable_reason = "no API key" if not available else None
+        result.append({**model, "available": available, "unavailableReason": unavailable_reason})
 
     return result
 

@@ -111,12 +111,13 @@ export default function SettingsPage() {
               return (
                 <button
                   key={model.id}
-                  onClick={() => setSelectedModel(model.id)}
+                  onClick={() => { if (model.available) setSelectedModel(model.id) }}
                   className="flex items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors w-full"
                   style={{
                     backgroundColor: 'var(--bg-surface)',
                     border: `1px solid ${isSelected ? 'var(--purple-600)' : 'var(--border-custom)'}`,
-                    opacity: model.available ? 1 : 0.6,
+                    opacity: model.available ? 1 : 0.5,
+                    cursor: model.available ? 'pointer' : 'default',
                   }}
                 >
                   <div
@@ -134,7 +135,7 @@ export default function SettingsPage() {
                       className="text-[10px] rounded px-1.5 py-0.5"
                       style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                     >
-                      not pulled
+                      {model.unavailableReason ?? 'not available'}
                     </span>
                   )}
                   {model.id === modelId && (

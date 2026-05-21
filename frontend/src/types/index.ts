@@ -10,7 +10,9 @@ export interface ModelDefinition {
   id: string
   name: string
   description: string
+  provider: string
   available: boolean
+  unavailableReason: string | null
 }
 
 export type EventType =
