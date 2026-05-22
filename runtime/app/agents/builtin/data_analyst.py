@@ -136,9 +136,10 @@ def _run(
 ) -> dict[str, Any]:
     total_tokens = 0
 
-    # Extract file path from task
-    path_match = re.search(r'(/[\w./\-_ ]+\.(?:csv|json)|[\w./\-_]+\.(?:csv|json))', task, re.IGNORECASE)
-    file_path = path_match.group().strip() if path_match else task.strip()
+    # Extract file path from the original task text only (strip knowledge context if present)
+    _task_text = task.split("\n[Task]\n", 1)[-1] if "\n[Task]\n" in task else task
+    path_match = re.search(r'(/[\w./\-_ ]+\.(?:csv|json)|[\w./\-_]+\.(?:csv|json))', _task_text, re.IGNORECASE)
+    file_path = path_match.group().strip() if path_match else _task_text.strip()
 
     # ── Step 1: Data Loader ──────────────────────────────────────────────────
     t0 = time.time()

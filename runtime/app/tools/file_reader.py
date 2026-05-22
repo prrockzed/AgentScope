@@ -3,7 +3,13 @@ from typing import Any
 
 from app.tools.base import BaseTool
 
-_SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
+_BINARY_EXTENSIONS = {
+    ".pyc", ".class", ".o", ".so", ".dll", ".pyo", ".exe", ".bin",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".svg",
+    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov",
+    ".woff", ".woff2", ".ttf", ".eot",
+}
 _MAX_CHARS = 10000
 
 
@@ -15,13 +21,13 @@ class FileReaderTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Reads the text content of a local file. "
-            "Supports .txt, .md, and .pdf files. "
-            "Input: {'file_path': '<absolute or relative path to file>'}"
+            "Reads the text content of a local file (source code, configs, docs, etc.). "
+            "Input: path (required) — absolute or relative path to the file."
         )
 
-    def run(self, **kwargs: Any) -> str:
-        file_path: str = kwargs.get("file_path", "")
+    def run(self, path: str = "", **kwargs: Any) -> str:
+        # Accept both 'path' and legacy 'file_path' kwarg
+        file_path: str = path or kwargs.get("file_path", "")
         if not file_path or not file_path.strip():
             raise ValueError("file_path must not be empty")
 
@@ -33,16 +39,18 @@ class FileReaderTool(BaseTool):
         _, ext = os.path.splitext(file_path)
         ext = ext.lower()
 
-        if ext not in _SUPPORTED_EXTENSIONS:
-            raise ValueError(
-                f"Unsupported file type '{ext}'. Supported: {', '.join(sorted(_SUPPORTED_EXTENSIONS))}"
-            )
-
         if ext == ".pdf":
             return self._read_pdf(file_path)
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        if ext in _BINARY_EXTENSIONS:
+            raise ValueError(f"Binary file type '{ext}' cannot be read as text")
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, "r", encoding="latin-1") as f:
+                content = f.read()
 
         return content[:_MAX_CHARS]
 

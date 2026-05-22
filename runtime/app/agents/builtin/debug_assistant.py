@@ -180,7 +180,8 @@ def _run(
     # Find file paths in the original task or parsed error
     file_context: Optional[str] = None
     path_pattern = r'(/[\w./\-_]+\.\w+|[\w./\-_]+\.(?:py|java|ts|js|go|rb|rs|log|txt|yaml|yml|json|xml|properties))'
-    paths_in_task = re.findall(path_pattern, task)
+    _task_text = task.split("\n[Task]\n", 1)[-1] if "\n[Task]\n" in task else task
+    paths_in_task = re.findall(path_pattern, _task_text)
     paths_in_parsed = re.findall(path_pattern, parsed_error)
     candidate_paths = list(dict.fromkeys(paths_in_task + paths_in_parsed))[:3]
 

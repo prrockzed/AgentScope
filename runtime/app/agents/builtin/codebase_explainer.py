@@ -132,9 +132,10 @@ def _run(
 ) -> dict[str, Any]:
     total_tokens = 0
 
-    # Extract directory path from task (first path-like token, or entire task)
-    path_match = re.search(r"(/[\w./\-_]+|\./[\w./\-_]+|[\w\-_]+/[\w./\-_]*)", task)
-    repo_path = path_match.group() if path_match else task.strip()
+    # Extract directory path from the original task text only (strip knowledge context if present)
+    _task_text = task.split("\n[Task]\n", 1)[-1] if "\n[Task]\n" in task else task
+    path_match = re.search(r"(/[\w./\-_]+|\./[\w./\-_]+|[\w\-_]+/[\w./\-_]+)", _task_text)
+    repo_path = path_match.group() if path_match else _task_text.strip()
 
     # ── Step 1: Structure Mapper ─────────────────────────────────────────────
     t0 = time.time()
