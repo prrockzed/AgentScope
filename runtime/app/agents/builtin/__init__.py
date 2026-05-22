@@ -12,8 +12,13 @@ To remove an agent
 Delete or comment-out the corresponding import line below.
 """
 
-from app.agents.builtin import chain_of_thought  # noqa: F401
-from app.agents.builtin import critic_agent       # noqa: F401
-from app.agents.builtin import direct_answer      # noqa: F401
-from app.agents.builtin import summariser         # noqa: F401
-from app.agents.builtin import tool_agent         # noqa: F401
+from app.agents.builtin import chain_of_thought   # noqa: F401
+from app.agents.builtin import critic_agent        # noqa: F401
+from app.agents.builtin import direct_answer       # noqa: F401
+from app.agents.builtin import summariser          # noqa: F401
+from app.agents.builtin import tool_agent          # noqa: F401
+from app.agents.builtin import research_analyst    # noqa: F401
+from app.agents.builtin import codebase_explainer  # noqa: F401
+from app.agents.builtin import data_analyst        # noqa: F401
+from app.agents.builtin import competitive_intel   # noqa: F401
+from app.agents.builtin import debug_assistant     # noqa: F401
