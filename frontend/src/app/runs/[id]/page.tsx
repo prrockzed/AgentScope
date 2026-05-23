@@ -44,7 +44,7 @@ export default function TraceViewerPage({ params }: Props) {
   useTraceWebSocket(id, isRunning ?? false)
 
   const replay = useReplayRun()
-const { data: savedData } = useIsRunSaved(id)
+  const { data: savedData } = useIsRunSaved(id)
   const isSaved = savedData?.saved ?? false
   const { save: saveRunMutation, unsave: unsaveRunMutation } = useSaveRun(id)
   const { data: runOptimizations } = useRunOptimizations(id)
@@ -95,116 +95,121 @@ const { data: savedData } = useIsRunSaved(id)
     <div className={`flex flex-col gap-6 ${activeTab === 'graph' ? 'max-w-6xl' : 'max-w-5xl'}`}>
       {/* Run header */}
       <div
-        className="rounded-lg p-5 flex flex-col gap-4"
+        className="rounded-lg overflow-hidden"
         style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-custom)' }}
       >
         {runLoading ? (
-          <div className="flex flex-col gap-3">
+          <div className="p-5 flex flex-col gap-3">
             <Skeleton className="h-5 w-64" style={{ backgroundColor: 'var(--bg-elevated)' }} />
             <Skeleton className="h-4 w-48" style={{ backgroundColor: 'var(--bg-elevated)' }} />
           </div>
         ) : run ? (
           <>
-            {/* Row 1: ID + status */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative flex items-center gap-2">
+            {/* Main content */}
+            <div className="p-5 flex flex-col gap-3">
+              {/* Task + status */}
+              <div className="flex items-start justify-between gap-4">
+                {run.task ? (
+                  <p className="text-lg font-semibold leading-snug flex-1" style={{ color: 'var(--text-primary)' }}>
+                    {run.task}
+                  </p>
+                ) : (
+                  <span className="text-lg font-semibold flex-1" style={{ color: 'var(--text-muted)' }}>Untitled run</span>
+                )}
+                <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
+                  <RunStatusBadge status={run.status} />
+                  {isRunning && <LiveIndicator />}
+                </div>
+              </div>
+
+              {/* Metadata row */}
+              <div className="flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--text-muted)' }}>
                 <button
                   onClick={copyRunId}
                   title="Click to copy run ID"
-                  className="font-mono text-xs rounded px-2 py-1 transition-colors"
+                  className="font-mono text-xs rounded px-1.5 py-0.5 transition-colors"
                   style={{
-                    color: 'var(--text-primary)',
+                    color: 'var(--text-muted)',
                     backgroundColor: 'var(--bg-elevated)',
                     border: '1px solid var(--border-custom)',
-                    letterSpacing: '0.02em',
                   }}
                 >
-                  {run.id}
+                  {run.id.slice(0, 8)}
                 </button>
                 {idCopied && (
-                  <span
-                    className="rounded px-2 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: '#14532d', color: '#22c55e' }}
-                  >
-                    Copied!
-                  </span>
+                  <span className="text-xs font-medium" style={{ color: '#22c55e' }}>Copied!</span>
+                )}
+                <span className="text-xs select-none">·</span>
+                <span className="text-xs">{formatRelativeTime(run.createdAt)}</span>
+                {run.totalLatency != null && (
+                  <>
+                    <span className="text-xs select-none">·</span>
+                    <span className="text-xs font-mono">{formatMs(run.totalLatency)}</span>
+                  </>
+                )}
+                {run.totalTokens != null && (
+                  <>
+                    <span className="text-xs select-none">·</span>
+                    <span className="text-xs">{run.totalTokens} tokens</span>
+                  </>
                 )}
               </div>
-              <RunStatusBadge status={run.status} />
-              {isRunning && <LiveIndicator />}
             </div>
 
-            {/* Row 2: Action buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-
-              {/* Save Run button — hidden while RUNNING */}
-              {run.status !== 'RUNNING' && (
+            {/* Action bar */}
+            {run.status !== 'RUNNING' && (
+              <div
+                className="px-5 py-3 flex items-center gap-2 flex-wrap"
+                style={{ borderTop: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-elevated)' }}
+              >
+                {/* Save */}
                 <button
                   disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
-                  onClick={() =>
-                    isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()
-                  }
-                  className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()}
+                  className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={
                     isSaved
                       ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
-                      : { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+                      : { backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }
                   }
                 >
-                  {isSaved ? 'Saved' : 'Save Run'}
+                  {isSaved ? 'Saved' : 'Save'}
                 </button>
-              )}
 
-              {/* Replay button */}
-              <button
-                disabled={run.status === 'RUNNING' || replay.isPending}
-                onClick={() =>
-                  replay.mutate(run.id, {
-                    onSuccess: (newRun) => router.push(`/runs/${newRun.id}`),
-                  })
-                }
-                className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-              >
-                {replay.isPending ? 'Replaying...' : 'Replay Run'}
-              </button>
-
-              {/* Rule-based optimization suggestions */}
-              {run.status !== 'RUNNING' && ruleBasedCount > 0 && (
+                {/* Replay */}
                 <button
-                  onClick={() => router.push(`/optimizations?run=${run.id}`)}
-                  className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
-                  style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
+                  disabled={replay.isPending}
+                  onClick={() => replay.mutate(run.id, { onSuccess: (newRun) => router.push(`/runs/${newRun.id}`) })}
+                  className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
                 >
-                  <span
-                    className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                    style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                  {replay.isPending ? 'Replaying…' : 'Replay'}
+                </button>
+
+                <div className="flex-1" />
+
+                {/* Rule-based optimizations */}
+                {ruleBasedCount > 0 && (
+                  <button
+                    onClick={() => router.push(`/optimizations?run=${run.id}`)}
+                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                    style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
                   >
-                    {ruleBasedCount}
-                  </span>
-                  Rule-based Optimization{ruleBasedCount !== 1 ? 's' : ''}
-                </button>
-              )}
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                    >
+                      {ruleBasedCount}
+                    </span>
+                    {ruleBasedCount === 1 ? 'Optimization' : 'Optimizations'}
+                  </button>
+                )}
 
-              {/* Evaluate button */}
-              {run.status !== 'RUNNING' && (
-                <button
-                  onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
-                  disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING'}
-                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : undefined}
-                  className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                >
-                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : 'Evaluate'}
-                </button>
-              )}
-
-              {/* AI optimization suggestions */}
-              {run.status !== 'RUNNING' && (
-                hasAISuggestions ? (
+                {/* AI optimizations */}
+                {hasAISuggestions ? (
                   <button
                     onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
-                    className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
                     style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
                   >
                     <span
@@ -213,31 +218,31 @@ const { data: savedData } = useIsRunSaved(id)
                     >
                       {aiCount}
                     </span>
-                    AI Optimization{aiCount !== 1 ? 's' : ''}
+                    AI Optimization Insights
                   </button>
                 ) : (
                   <button
                     disabled={analyzeAI.isPending}
                     onClick={() => analyzeAI.mutate()}
-                    className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
                   >
-                    {analyzeAI.isPending ? 'Generating…' : 'Get AI Optimizations'}
+                    {analyzeAI.isPending ? 'Analyzing…' : 'AI Optimization Insights'}
                   </button>
-                )
-              )}
-            </div>
+                )}
 
-            {run.task && (
-              <p className="text-lg font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
-                {run.task}
-              </p>
+                {/* Evaluate */}
+                <button
+                  onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
+                  disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING'}
+                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : undefined}
+                  className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                >
+                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : 'Evaluate'}
+                </button>
+              </div>
             )}
-            <div className="flex items-center gap-6 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
-              <span>{formatRelativeTime(run.createdAt)}</span>
-              <span className="font-mono">{formatMs(run.totalLatency)}</span>
-              {run.totalTokens != null && <span>{run.totalTokens} tokens</span>}
-            </div>
           </>
         ) : null}
       </div>
