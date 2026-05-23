@@ -51,6 +51,8 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./runtime/app:/app/app
+      - /home:/home:ro
+      - /tmp:/tmp:ro
     depends_on:
       - backend
 
