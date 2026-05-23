@@ -25,6 +25,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Optimization Advisor** — after every run, rule-based heuristics automatically fire and write actionable suggestions (latency, retries, token usage, failure type); on demand, click "Analyse with AI" in the trace viewer to call the Groq API (`llama-3.3-70b-versatile`) for deeper AI-powered suggestions; all suggestions live on the `/optimizations` page with severity badges, category labels, and per-run filtering; once AI analysis is done the button turns green and links directly to the AI Analysis tab
 - **Operational Knowledge Base** — every completed run feeds a growing intelligence layer visible on the `/knowledge` page: successful and failed workflow patterns are recorded with rolling-average latency and token stats; per-model aggregate stats (total runs, success rate, avg latency, avg tokens) show objectively which models perform best with colour-coded badges; optimization suggestions are aggregated by category so recurring problem types surface immediately; before each run the backend assembles a context string from prior patterns for that exact task and injects it into the agent's prompt so agents are guided by what the system already knows — on a fresh database nothing is injected and the system learns progressively; all four data sets are backfilled automatically from existing run history on first start
 - **Accuracy evaluation** — manually score any completed run 0–100 by clicking "Evaluate" in the trace viewer; the backend builds a structured prompt from the task, agent description, final output, and every tool call, then sends it to whichever evaluator model the operator selected (Groq, OpenAI, or Gemini); the LLM returns a score, 2–3 sentence reasoning, a task-fit label (`APPROPRIATE` / `QUESTIONABLE` / `INAPPROPRIATE`), and an action recommendation (`NO_ACTION` / `CONSIDER_IMPROVEMENT` / `NEEDS_IMPROVEMENT`); the result renders as a card below the run header — pulsing skeleton while pending, coloured score badge and recommendation banner once done; the score also appears in the Runs table Accuracy column colour-coded green/amber/red; re-evaluating a run with a different model overwrites the previous result
+- **Agent improvement patches** — when a run has a completed accuracy evaluation with `taskFit=APPROPRIATE`, an "Improve Agent" button appears in the trace viewer action bar; clicking it calls the same evaluator LLM used for the accuracy eval with a structured prompt containing the run details and evaluation findings, and asks it to generate a concrete 1–3 sentence instruction improvement; the patch is stored in `agent_patches` with a `GENERATING → PENDING → ACTIVE` lifecycle; the `/improvements` page lists all patches grouped by status (Pending / Active / History); operators review each patch and click Activate or Reject; once active, the instruction is automatically prepended to the system prompt of every future run of that agent type via the same `knowledge_context` injection path already used by the Knowledge Base — no runtime code changes required; patches can be revoked at any time and remain as read-only history; the "Improve Agent" button becomes disabled (shows "Improved") once a patch has been generated for that run, and re-enables only if generation failed
 - **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
 
 ---
@@ -66,6 +67,7 @@ PostgreSQL  ◄─────────────────────�
 11. Spring Boot records the run into the knowledge base — successful runs upsert into `successful_patterns` (rolling avg latency + tokens); failed runs upsert into `failure_patterns` (keyed by failure reason); model stats are upserted into `model_insights` (rolling avg latency + tokens, success/failure counts); all four sections are visible on the `/knowledge` page
 12. Before the next run on the same task, the backend queries the knowledge base and prepends a context block to the agent's prompt — so agents improve over time without any code changes
 13. *(On demand)* When the operator clicks "Evaluate" in the trace viewer, Spring Boot creates a `PENDING` record in `accuracy_evaluations`, returns 202 immediately, then asynchronously calls the selected evaluator LLM with a structured prompt; the frontend polls every 2 s until the status is `DONE` or `FAILED`; the score is also surfaced on the Runs list Accuracy column
+14. *(On demand)* When the operator clicks "Improve Agent" (only available when `taskFit=APPROPRIATE`), Spring Boot creates a `GENERATING` record in `agent_patches`, returns 202 immediately, then asynchronously calls the same evaluator LLM with the run details and evaluation findings to generate a concrete instruction patch; the frontend polls every 2 s while any patch is `GENERATING`; once `PENDING`, the patch appears on `/improvements` for review; activating a patch causes `AgentRunService` to prepend `[Agent Instructions]` to the `knowledge_context` for every subsequent run of that agent type
 
 ---
 
@@ -235,6 +237,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `failure_patterns` | Aggregated failure patterns — occurrence count per `(task, agent_type, model, failure_reason)` combo |
 | `model_insights` | Per-model aggregate stats — total runs, success/failure counts, rolling avg latency and tokens; UNIQUE on `model`; backfilled from existing runs on first start |
 | `accuracy_evaluations` | One row per run — 0–100 accuracy score, score reasoning, task fit label, action recommendation, recommendation reasoning, evaluator model used, status (`PENDING`/`DONE`/`FAILED`); UNIQUE on `run_id` so re-evaluating overwrites in place |
+| `agent_patches` | One row per generated improvement patch — agent type, source run, evaluator model, title, instruction text, rationale, status (`GENERATING`/`PENDING`/`ACTIVE`/`REJECTED`/`REVOKED`/`FAILED`), and lifecycle timestamps; indexed on `(agent_type, status)` for fast injection lookup |
 
 **Inspect the database directly:**
 ```bash
@@ -280,6 +283,11 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/knowledge/context` | Returns the knowledge context string for a given `?task=` (and optional `&model=`); empty string if no prior history exists for that task |
 | `POST` | `/api/runs/{id}/accuracy-eval` | Trigger accuracy evaluation — body: `{ "evaluatorModel": "groq/llama-3.3-70b-versatile" }`; returns 202 with a `PENDING` dto immediately; if an eval is already `PENDING` for this run, returns the existing one (no duplicate); re-triggering a `DONE`/`FAILED` run overwrites it |
 | `GET` | `/api/runs/{id}/accuracy-eval` | Get the accuracy evaluation for a run — 200 with dto if exists, 404 if not yet evaluated |
+| `POST` | `/api/runs/{id}/generate-patch` | Generate an improvement patch for a run — requires a `DONE` accuracy eval with `taskFit=APPROPRIATE`; creates a `GENERATING` patch record and fires async LLM generation; returns 202 immediately |
+| `GET` | `/api/agent-patches` | List all improvement patches ordered newest-first |
+| `PATCH` | `/api/agent-patches/{id}/activate` | Activate a `PENDING` patch — sets status to `ACTIVE`; the instruction is injected into all future runs of that agent type |
+| `PATCH` | `/api/agent-patches/{id}/reject` | Reject a `PENDING` patch — sets status to `REJECTED`; remains as read-only history |
+| `PATCH` | `/api/agent-patches/{id}/revoke` | Revoke an `ACTIVE` patch — sets status to `REVOKED`; instruction is no longer injected |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -327,6 +335,26 @@ Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayO
 ```
 `taskFit` is one of `APPROPRIATE`, `QUESTIONABLE`, `INAPPROPRIATE`. `actionRecommendation` is one of `NO_ACTION`, `CONSIDER_IMPROVEMENT`, `NEEDS_IMPROVEMENT`. `evalStatus` is `PENDING` while the LLM call is in flight, `DONE` on success, or `FAILED` with `errorMessage` set (e.g. if an Anthropic model is selected — not supported).
 
+**AgentPatch response shape:**
+```json
+{
+  "id": "uuid",
+  "agentType": "tool_agent",
+  "sourceRunId": "uuid",
+  "evaluatorModel": "groq/llama-3.3-70b-versatile",
+  "title": "Verify calculator results before reporting",
+  "instruction": "After receiving a calculator result, always cross-check it with a second calculation using different operand order before including it in your final answer.",
+  "rationale": "The evaluation found the agent reported an unverified intermediate calculation as the final answer. This instruction prevents that by requiring confirmation.",
+  "status": "ACTIVE",
+  "errorMessage": null,
+  "createdAt": "2025-05-23T10:00:00Z",
+  "activatedAt": "2025-05-23T10:01:30Z",
+  "rejectedAt": null,
+  "revokedAt": null
+}
+```
+`status` lifecycle: `GENERATING` (LLM call in flight) → `PENDING` (awaiting operator review) → `ACTIVE` (injected into new runs) or `REJECTED` (discarded). `ACTIVE` patches can be `REVOKED` at any time. `FAILED` patches have `errorMessage` set and can be retried by clicking "Improve Agent" again.
+
 ---
 
 ## Project Structure
@@ -345,23 +373,23 @@ AgentScope/
 │           └── agentscope.json  Pre-built dashboard (8 panels, 3 rows)
 ├── frontend/                    Next.js dashboard
 │   └── src/
-│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /knowledge, /memory
-│       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, knowledge/ModelInsightsTable, knowledge/OptimizationLearningsTable, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, useRunAccuracyEval, useTriggerAccuracyEval, useEvaluatorModel, ...)
+│       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /knowledge, /memory, /improvements
+│       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, knowledge/ModelInsightsTable, knowledge/OptimizationLearningsTable, improvements/PatchCard, layout)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, useRunAccuracyEval, useTriggerAccuracyEval, useEvaluatorModel, useAgentPatches, useGeneratePatch, usePatchAction, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs (includes AccuracyEvaluation)
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, KnowledgeController, AccuracyEvalController)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService, KnowledgeService, AccuracyEvalService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern, ModelInsight, AccuracyEvaluation)
-│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, AccuracyEvaluationDto, TriggerAccuracyEvalRequest, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, AccuracyEvaluationRepository, ...)
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, KnowledgeController, AccuracyEvalController, AgentPatchController)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService, KnowledgeService, AccuracyEvalService, AgentPatchService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern, ModelInsight, AccuracyEvaluation, AgentPatch)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, AccuracyEvaluationDto, AgentPatchDto, TriggerAccuracyEvalRequest, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, AccuracyEvaluationRepository, AgentPatchRepository, ...)
 │       ├── config/              CORS, beans, async config (@EnableAsync), WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V18 Flyway SQL migrations
+│       └── db/migration/        V1–V19 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute, GET /agents, GET /models endpoints
