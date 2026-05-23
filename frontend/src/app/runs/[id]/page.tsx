@@ -234,12 +234,12 @@ export default function TraceViewerPage({ params }: Props) {
                 {/* Evaluate */}
                 <button
                   onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
-                  disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING'}
-                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : undefined}
+                  disabled={!evaluatorModel || triggerEval.isPending || !!accuracyEval}
+                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : accuracyEval ? 'Already evaluated' : undefined}
                   className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
                 >
-                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : 'Evaluate'}
+                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : accuracyEval?.evalStatus === 'DONE' ? 'Evaluated' : accuracyEval?.evalStatus === 'FAILED' ? 'Eval Failed' : 'Evaluate'}
                 </button>
               </div>
             )}
