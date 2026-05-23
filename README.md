@@ -8,6 +8,23 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 
 ---
 
+## Screenshots (A Glimpse of the features ahead)
+<img width="2809" height="1503" alt="2026-05-24_01-12-16" src="https://github.com/user-attachments/assets/9de5b365-68cd-4ff3-b32c-447df81aa699" />
+&nbsp;
+<img width="2791" height="1486" alt="2026-05-24_01-12-51" src="https://github.com/user-attachments/assets/9c41c168-c541-42c2-a02a-9a936eeb5661" />
+&nbsp;
+<img width="2815" height="1524" alt="2026-05-24_01-13-10" src="https://github.com/user-attachments/assets/8578232e-fd2d-435b-b2a2-0f760f7587f7" />
+&nbsp;
+<img width="2770" height="1497" alt="2026-05-24_01-13-33" src="https://github.com/user-attachments/assets/5f7a4a14-64f5-4778-9b69-943d2368fe81" />
+&nbsp;
+<img width="2786" height="1490" alt="2026-05-24_01-17-13" src="https://github.com/user-attachments/assets/65eca2a9-d038-4ad8-821a-e0d934e1eb6a" />
+&nbsp;
+<img width="2795" height="1494" alt="2026-05-24_01-17-32" src="https://github.com/user-attachments/assets/69addc3b-b445-4414-a8aa-2ca653b4f6ce" />
+&nbsp;
+<img width="2817" height="1490" alt="2026-05-24_01-17-40" src="https://github.com/user-attachments/assets/815feaf6-0456-4194-bd3f-d2123155abb2" />
+
+---
+
 ## Features
 
 - **Multi-agent support** — choose from 5 built-in agents (Tool Agent, Direct Answer, Chain of Thought, Summariser, Critic Agent); set a default in Settings or pick a different one per run with the "Run as…" button; each run records which agent executed it
