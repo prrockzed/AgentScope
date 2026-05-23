@@ -33,6 +33,23 @@ export interface AgentRun {
   failureReason: string | null
   model: string | null
   agentType: string | null
+  accuracyScore: number | null
+  evalStatus: string | null
+}
+
+export interface AccuracyEvaluation {
+  id: string
+  runId: string
+  accuracyScore: number | null
+  scoreReasoning: string | null
+  taskFit: 'APPROPRIATE' | 'QUESTIONABLE' | 'INAPPROPRIATE' | null
+  actionRecommendation: 'NO_ACTION' | 'CONSIDER_IMPROVEMENT' | 'NEEDS_IMPROVEMENT' | null
+  recommendationReasoning: string | null
+  evaluatorModel: string | null
+  evalStatus: 'PENDING' | 'DONE' | 'FAILED'
+  errorMessage: string | null
+  createdAt: string
+  completedAt: string | null
 }
 
 export interface TraceStep {

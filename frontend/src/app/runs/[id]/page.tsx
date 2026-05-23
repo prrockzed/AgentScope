@@ -9,9 +9,13 @@ import { useIsRunSaved } from '@/hooks/useIsRunSaved'
 import { useSaveRun } from '@/hooks/useSaveRun'
 import { useRunOptimizations } from '@/hooks/useRunOptimizations'
 import { useAnalyzeWithAI } from '@/hooks/useAnalyzeWithAI'
+import { useEvaluatorModel } from '@/hooks/useEvaluatorModel'
+import { useRunAccuracyEval } from '@/hooks/useRunAccuracyEval'
+import { useTriggerAccuracyEval } from '@/hooks/useTriggerAccuracyEval'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
+import { AccuracyEvalCard } from '@/components/accuracy/AccuracyEvalCard'
 import { TraceTimeline } from '@/components/traces/TraceTimeline'
 import { ExecutionGraph } from '@/components/graph/ExecutionGraph'
 import { DiffView } from '@/components/traces/DiffView'
@@ -48,6 +52,10 @@ const { data: savedData } = useIsRunSaved(id)
   const ruleBasedCount = runOptimizations?.filter((s) => s.source === 'RULE').length ?? 0
   const aiCount = runOptimizations?.filter((s) => s.source === 'AI').length ?? 0
   const hasAISuggestions = aiCount > 0
+
+  const { modelId: evaluatorModel } = useEvaluatorModel()
+  const { data: accuracyEval } = useRunAccuracyEval(id)
+  const triggerEval = useTriggerAccuracyEval()
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
@@ -178,6 +186,19 @@ const { data: savedData } = useIsRunSaved(id)
                 </button>
               )}
 
+              {/* Evaluate button */}
+              {run.status !== 'RUNNING' && (
+                <button
+                  onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
+                  disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING'}
+                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : undefined}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                >
+                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : 'Evaluate'}
+                </button>
+              )}
+
               {/* AI optimization suggestions */}
               {run.status !== 'RUNNING' && (
                 hasAISuggestions ? (
@@ -238,6 +259,9 @@ const { data: savedData } = useIsRunSaved(id)
           )}
         </div>
       )}
+
+      {/* Accuracy eval card */}
+      {accuracyEval && <AccuracyEvalCard eval={accuracyEval} />}
 
       {/* Tab switcher */}
       <div className="flex gap-2">

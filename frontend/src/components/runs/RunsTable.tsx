@@ -52,13 +52,19 @@ function activeFilterCount(f: Filters) {
 function SkeletonRow() {
   return (
     <TableRow style={{ borderBottom: '1px solid var(--border-custom)' }}>
-      {[...Array(8)].map((_, i) => (
+      {[...Array(9)].map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-full rounded" style={{ backgroundColor: 'var(--bg-elevated)' }} />
         </TableCell>
       ))}
     </TableRow>
   )
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return '#22c55e'
+  if (score >= 50) return '#f59e0b'
+  return '#ef4444'
 }
 
 const inputStyle = {
@@ -380,7 +386,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
           <Table>
             <TableHeader>
               <TableRow style={{ borderBottom: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-surface)' }}>
-                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', 'Agent'].map((h) => (
+                {['ID', 'Task', 'Status', 'Created', 'Latency', 'Tokens', 'Model', 'Agent', 'Accuracy'].map((h) => (
                   <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </TableHead>
@@ -392,7 +398,7 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                 [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
               ) : filteredRuns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                  <TableCell colSpan={9} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                     {hasAnyFilter ? 'No runs match your search or filters.' : 'No runs yet. Submit your first task above.'}
                   </TableCell>
                 </TableRow>
@@ -440,6 +446,13 @@ export function RunsTable({ runs, isLoading, error, onRetry }: Props) {
                     </TableCell>
                     <TableCell className="text-sm" style={{ color: 'var(--text-primary)' }}>
                       {formatAgentType(run.agentType)}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {run.evalStatus === 'DONE' && run.accuracyScore != null
+                        ? <span style={{ color: scoreColor(run.accuracyScore) }}>{run.accuracyScore}%</span>
+                        : run.evalStatus === 'PENDING'
+                        ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Pending…</span>
+                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </TableCell>
                   </TableRow>
                 ))

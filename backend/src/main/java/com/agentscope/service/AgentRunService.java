@@ -4,6 +4,7 @@ import com.agentscope.dto.AgentRunDto;
 import com.agentscope.dto.CreateRunRequest;
 import com.agentscope.dto.FailureSummaryDto;
 import com.agentscope.exception.ResourceNotFoundException;
+import com.agentscope.model.AccuracyEvaluation;
 import com.agentscope.model.AgentRun;
 import com.agentscope.repository.AgentRunRepository;
 import io.micrometer.core.instrument.Counter;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +36,7 @@ public class AgentRunService {
     private final RegressionComparisonService regressionComparisonService;
     private final MemoryService memoryService;
     private final KnowledgeService knowledgeService;
+    private final AccuracyEvalService accuracyEvalService;
     private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
@@ -46,6 +49,7 @@ public class AgentRunService {
                            RegressionComparisonService regressionComparisonService,
                            MemoryService memoryService,
                            KnowledgeService knowledgeService,
+                           AccuracyEvalService accuracyEvalService,
                            MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
@@ -55,6 +59,7 @@ public class AgentRunService {
         this.regressionComparisonService = regressionComparisonService;
         this.memoryService = memoryService;
         this.knowledgeService = knowledgeService;
+        this.accuracyEvalService = accuracyEvalService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -74,19 +79,23 @@ public class AgentRunService {
 
         startRunThread(runId, request.task(), agentType, resolvedModel, "run-" + runId);
 
-        return toDto(run);
+        return toDto(run, null);
     }
 
     public List<AgentRunDto> getAllRuns() {
-        return agentRunRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(this::toDto)
+        List<AgentRun> runs = agentRunRepository.findAllByOrderByCreatedAtDesc();
+        List<UUID> runIds = runs.stream().map(AgentRun::getId).toList();
+        Map<UUID, AccuracyEvaluation> evalMap = accuracyEvalService.getAllForRuns(runIds);
+        return runs.stream()
+                .map(run -> toDto(run, evalMap.get(run.getId())))
                 .toList();
     }
 
     public AgentRunDto getRun(UUID id) {
         AgentRun run = agentRunRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + id));
-        return toDto(run);
+        Map<UUID, AccuracyEvaluation> evalMap = accuracyEvalService.getAllForRuns(List.of(id));
+        return toDto(run, evalMap.get(id));
     }
 
     public List<FailureSummaryDto> getFailureSummary() {
@@ -120,7 +129,7 @@ public class AgentRunService {
 
         startRunThread(newRunId, original.getTask(), agentType, replayModel, "replay-" + newRunId);
 
-        return toDto(newRun);
+        return toDto(newRun, null);
     }
 
     // -------------------------------------------------------------------------
@@ -209,7 +218,7 @@ public class AgentRunService {
         }
     }
 
-    private AgentRunDto toDto(AgentRun run) {
+    private AgentRunDto toDto(AgentRun run, AccuracyEvaluation eval) {
         return new AgentRunDto(
                 run.getId(),
                 run.getTask(),
@@ -220,7 +229,9 @@ public class AgentRunService {
                 run.getReplayOf(),
                 run.getFailureReason(),
                 run.getModel(),
-                run.getAgentType()
+                run.getAgentType(),
+                eval != null ? eval.getAccuracyScore() : null,
+                eval != null ? eval.getEvalStatus() : null
         );
     }
 

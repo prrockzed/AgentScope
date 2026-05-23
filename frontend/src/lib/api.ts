@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentDetail, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
+import type { AccuracyEvaluation, AgentDefinition, AgentDetail, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -105,4 +105,21 @@ export async function getMemoryPatterns(): Promise<{
 
 export async function getKnowledgeSummary(): Promise<KnowledgeSummary> {
   return fetcher('/api/knowledge/summary')
+}
+
+export async function getRunAccuracyEval(runId: string): Promise<AccuracyEvaluation | null> {
+  const res = await fetch(`${BASE_URL}/api/runs/${runId}/accuracy-eval`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AccuracyEvaluation>
+}
+
+export async function triggerAccuracyEval(runId: string, evaluatorModel: string): Promise<AccuracyEvaluation> {
+  const res = await fetch(`${BASE_URL}/api/runs/${runId}/accuracy-eval`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ evaluatorModel }),
+  })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AccuracyEvaluation>
 }

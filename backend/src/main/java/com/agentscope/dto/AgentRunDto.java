@@ -13,5 +13,7 @@ public record AgentRunDto(
         UUID replayOf,
         String failureReason,
         String model,
-        String agentType
+        String agentType,
+        Integer accuracyScore,
+        String evalStatus
 ) {}

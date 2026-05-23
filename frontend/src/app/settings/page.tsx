@@ -5,6 +5,7 @@ import { useAgents } from '@/hooks/useAgents'
 import { useDefaultAgent } from '@/hooks/useDefaultAgent'
 import { useModels } from '@/hooks/useModels'
 import { useDefaultModel } from '@/hooks/useDefaultModel'
+import { useEvaluatorModel } from '@/hooks/useEvaluatorModel'
 
 export default function SettingsPage() {
   const { data: agents = [], isLoading: agentsLoading } = useAgents()
@@ -15,8 +16,12 @@ export default function SettingsPage() {
   const { modelId, setDefault: setDefaultModel } = useDefaultModel()
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
+  const { modelId: evaluatorModelId, setEvaluatorModel } = useEvaluatorModel()
+  const [selectedEvaluatorModel, setSelectedEvaluatorModel] = useState<string | null>(null)
+
   const pendingAgent = selectedAgent ?? agentId
   const pendingModel = selectedModel ?? modelId
+  const pendingEvaluatorModel = selectedEvaluatorModel ?? evaluatorModelId
 
   function handleSetDefaultAgent() {
     if (selectedAgent && selectedAgent !== agentId) {
@@ -29,6 +34,13 @@ export default function SettingsPage() {
     if (selectedModel && selectedModel !== modelId) {
       setDefaultModel(selectedModel)
       setSelectedModel(null)
+    }
+  }
+
+  function handleSetEvaluatorModel() {
+    if (selectedEvaluatorModel && selectedEvaluatorModel !== evaluatorModelId) {
+      setEvaluatorModel(selectedEvaluatorModel)
+      setSelectedEvaluatorModel(null)
     }
   }
 
@@ -157,6 +169,75 @@ export default function SettingsPage() {
               style={{ backgroundColor: 'var(--purple-600)', color: 'white' }}
             >
               Set as Default
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Evaluator Model section */}
+      <div>
+        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          Evaluator Model
+        </h2>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+          Model used to score run accuracy. Cloud models give more reliable JSON output.
+        </p>
+
+        {modelsLoading ? (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading models…</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {models.map((model) => {
+              const isSelected = model.id === pendingEvaluatorModel
+              return (
+                <button
+                  key={model.id}
+                  onClick={() => { if (model.available) setSelectedEvaluatorModel(model.id) }}
+                  className="flex items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors w-full"
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    border: `1px solid ${isSelected ? 'var(--purple-600)' : 'var(--border-custom)'}`,
+                    opacity: model.available ? 1 : 0.5,
+                    cursor: model.available ? 'pointer' : 'default',
+                  }}
+                >
+                  <div
+                    className="h-3.5 w-3.5 rounded-full border-2 flex-shrink-0"
+                    style={{
+                      borderColor: isSelected ? 'var(--purple-600)' : 'var(--text-muted)',
+                      backgroundColor: isSelected ? 'var(--purple-600)' : 'transparent',
+                    }}
+                  />
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {model.name}
+                  </span>
+                  {!model.available && (
+                    <span
+                      className="text-[10px] rounded px-1.5 py-0.5"
+                      style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                    >
+                      {model.unavailableReason ?? 'not available'}
+                    </span>
+                  )}
+                  {model.id === evaluatorModelId && (
+                    <span
+                      className="ml-auto text-[10px] font-semibold rounded-full px-2 py-0.5"
+                      style={{ backgroundColor: 'var(--purple-600)', color: 'white' }}
+                    >
+                      evaluator
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+
+            <button
+              onClick={handleSetEvaluatorModel}
+              disabled={!selectedEvaluatorModel || selectedEvaluatorModel === evaluatorModelId}
+              className="mt-3 rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: 'var(--purple-600)', color: 'white' }}
+            >
+              Set as Evaluator
             </button>
           </div>
         )}
