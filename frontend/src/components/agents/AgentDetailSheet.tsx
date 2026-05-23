@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { X, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAgentDetail } from '@/hooks/useAgentDetail'
+import { useAgentPatches } from '@/hooks/useAgentPatches'
+import { formatRelativeTime } from '@/lib/utils'
 import type { AgentStep } from '@/types'
 
 const eventTypeStyles: Record<string, { bg: string; color: string }> = {
@@ -116,6 +118,13 @@ interface Props {
 
 export function AgentDetailSheet({ agentId, onClose }: Props) {
   const { data: detail, isLoading } = useAgentDetail(agentId)
+  const { data: allPatches } = useAgentPatches()
+  const activePatches = allPatches?.filter(
+    (p) => p.agentType === agentId && p.status === 'ACTIVE'
+  ) ?? []
+  const pendingPatches = allPatches?.filter(
+    (p) => p.agentType === agentId && p.status === 'PENDING'
+  ) ?? []
 
   if (!agentId) return null
 
@@ -200,6 +209,14 @@ export function AgentDetailSheet({ agentId, onClose }: Props) {
                 max {detail.maxRetries} retries
               </span>
             )}
+            {activePatches.length > 0 && (
+              <span
+                className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
+              >
+                {activePatches.length} active improvement{activePatches.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         )}
 
@@ -242,6 +259,80 @@ export function AgentDetailSheet({ agentId, onClose }: Props) {
             >
               {detail.retryNote}
             </p>
+          )}
+
+          {/* Improvements section */}
+          {!isLoading && detail && (activePatches.length > 0 || pendingPatches.length > 0) && (
+            <div className="mt-6 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Wrench size={13} style={{ color: 'var(--text-muted)' }} />
+                <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                  IMPROVEMENTS
+                </p>
+              </div>
+
+              {activePatches.map((patch) => (
+                <div
+                  key={patch.id}
+                  className="rounded-lg p-3 flex flex-col gap-1.5"
+                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid #166534' }}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
+                    >
+                      Active
+                    </span>
+                    {patch.activatedAt && (
+                      <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>
+                        {formatRelativeTime(patch.activatedAt)}
+                      </span>
+                    )}
+                  </div>
+                  {patch.title && (
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {patch.title}
+                    </p>
+                  )}
+                  {patch.instruction && (
+                    <p className="text-xs font-mono leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      {patch.instruction}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {pendingPatches.map((patch) => (
+                <div
+                  key={patch.id}
+                  className="rounded-lg p-3 flex flex-col gap-1.5"
+                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-custom)' }}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{ backgroundColor: '#451a03', color: '#fbbf24', border: '1px solid #78350f' }}
+                    >
+                      Pending Review
+                    </span>
+                    <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>
+                      {formatRelativeTime(patch.createdAt)}
+                    </span>
+                  </div>
+                  {patch.title && (
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {patch.title}
+                    </p>
+                  )}
+                  {patch.instruction && (
+                    <p className="text-xs font-mono leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      {patch.instruction}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
