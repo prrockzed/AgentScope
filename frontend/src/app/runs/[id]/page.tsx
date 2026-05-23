@@ -23,7 +23,7 @@ import { ExecutionGraph } from '@/components/graph/ExecutionGraph'
 import { DiffView } from '@/components/traces/DiffView'
 import { LiveIndicator } from '@/components/traces/LiveIndicator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatMs, formatRelativeTime } from '@/lib/utils'
+import { formatMs, formatRelativeTime, formatAgentType } from '@/lib/utils'
 import type { TraceStep } from '@/types'
 
 interface Props {
@@ -156,6 +156,36 @@ export default function TraceViewerPage({ params }: Props) {
                   <>
                     <span className="text-xs select-none">·</span>
                     <span className="text-xs">{run.totalTokens} tokens</span>
+                  </>
+                )}
+                {run.agentType && (
+                  <>
+                    <span className="text-xs select-none">·</span>
+                    <span
+                      className="text-xs rounded px-1.5 py-0.5"
+                      style={{
+                        backgroundColor: '#2e1065',
+                        color: '#a78bfa',
+                        border: '1px solid #4c1d95',
+                      }}
+                    >
+                      {formatAgentType(run.agentType)}
+                    </span>
+                  </>
+                )}
+                {run.model && (
+                  <>
+                    <span className="text-xs select-none">·</span>
+                    <span
+                      className="text-xs font-mono rounded px-1.5 py-0.5"
+                      style={{
+                        backgroundColor: 'var(--bg-elevated)',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border-custom)',
+                      }}
+                    >
+                      {run.model}
+                    </span>
                   </>
                 )}
               </div>
