@@ -24,6 +24,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
 - **Optimization Advisor** — after every run, rule-based heuristics automatically fire and write actionable suggestions (latency, retries, token usage, failure type); on demand, click "Analyse with AI" in the trace viewer to call the Groq API (`llama-3.3-70b-versatile`) for deeper AI-powered suggestions; all suggestions live on the `/optimizations` page with severity badges, category labels, and per-run filtering; once AI analysis is done the button turns green and links directly to the AI Analysis tab
 - **Operational Knowledge Base** — every completed run feeds a growing intelligence layer visible on the `/knowledge` page: successful and failed workflow patterns are recorded with rolling-average latency and token stats; per-model aggregate stats (total runs, success rate, avg latency, avg tokens) show objectively which models perform best with colour-coded badges; optimization suggestions are aggregated by category so recurring problem types surface immediately; before each run the backend assembles a context string from prior patterns for that exact task and injects it into the agent's prompt so agents are guided by what the system already knows — on a fresh database nothing is injected and the system learns progressively; all four data sets are backfilled automatically from existing run history on first start
+- **Accuracy evaluation** — manually score any completed run 0–100 by clicking "Evaluate" in the trace viewer; the backend builds a structured prompt from the task, agent description, final output, and every tool call, then sends it to whichever evaluator model the operator selected (Groq, OpenAI, or Gemini); the LLM returns a score, 2–3 sentence reasoning, a task-fit label (`APPROPRIATE` / `QUESTIONABLE` / `INAPPROPRIATE`), and an action recommendation (`NO_ACTION` / `CONSIDER_IMPROVEMENT` / `NEEDS_IMPROVEMENT`); the result renders as a card below the run header — pulsing skeleton while pending, coloured score badge and recommendation banner once done; the score also appears in the Runs table Accuracy column colour-coded green/amber/red; re-evaluating a run with a different model overwrites the previous result
 - **Prometheus + Grafana monitoring** — runs, latency, tokens, and failure reasons are emitted as metrics; a pre-built Grafana dashboard at `http://localhost:3001` shows 8 live panels across Summary stats, Throughput & Latency, and Token Usage & Failure Reasons
 
 ---
@@ -64,6 +65,7 @@ PostgreSQL  ◄─────────────────────�
 10. If the run is a replay, Spring Boot computes a regression score against the baseline run — latency/token/retry deltas are stored in `regression_results` alongside a weighted score from 0.0 to 1.0
 11. Spring Boot records the run into the knowledge base — successful runs upsert into `successful_patterns` (rolling avg latency + tokens); failed runs upsert into `failure_patterns` (keyed by failure reason); model stats are upserted into `model_insights` (rolling avg latency + tokens, success/failure counts); all four sections are visible on the `/knowledge` page
 12. Before the next run on the same task, the backend queries the knowledge base and prepends a context block to the agent's prompt — so agents improve over time without any code changes
+13. *(On demand)* When the operator clicks "Evaluate" in the trace viewer, Spring Boot creates a `PENDING` record in `accuracy_evaluations`, returns 202 immediately, then asynchronously calls the selected evaluator LLM with a structured prompt; the frontend polls every 2 s until the status is `DONE` or `FAILED`; the score is also surfaced on the Runs list Accuracy column
 
 ---
 
@@ -77,6 +79,7 @@ PostgreSQL  ◄─────────────────────�
 | **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
 | **LLM** | Ollama (local) — model chosen per run from a curated list; default persisted in browser localStorage |
 | **AI Analysis** | Groq API (`llama-3.3-70b-versatile`) — on-demand optimization suggestions; key loaded from `.env` |
+| **Accuracy Evaluation** | Multi-provider LLM routing — Groq, OpenAI, or Gemini; evaluator model selected in Settings and stored in localStorage; Ollama models also supported |
 | **Infrastructure** | Docker Compose (all services containerised) |
 | **Monitoring** | Prometheus 2.54, Grafana 11.2, Micrometer (Spring Boot), prometheus-fastapi-instrumentator (FastAPI) |
 
@@ -117,13 +120,25 @@ Java, Python, and Node.js are **not required** to run the project — everything
 
 ## Running the Project
 
-**Optional — Groq API key (for AI-powered optimization suggestions):**
+**Optional — API keys (for AI-powered features):**
 
-Get a free key at [console.groq.com](https://console.groq.com), then create a `.env` file at the project root (already in `.gitignore`):
+Create a `.env` file at the project root (already in `.gitignore`) with whichever keys you have:
 ```bash
-echo "GROQ_API_KEY=gsk_..." > .env
+GROQ_API_KEY=gsk_...          # AI optimization suggestions + accuracy evaluation via Groq models
+OPENAI_API_KEY=sk-...         # accuracy evaluation via OpenAI models (gpt-4o-mini, etc.)
+GEMINI_API_KEY=AIza...        # accuracy evaluation via Gemini models
 ```
-Without this key, rule-based suggestions still work — only the "Analyse with AI" button has no effect.
+Without any keys, rule-based optimization suggestions still work, and Ollama models can still be used as the evaluator. Cloud models (Groq/OpenAI/Gemini) give more reliable structured JSON output for evaluations.
+
+To pass these keys to the backend, add them to the `backend` service in `docker-compose.yml`:
+```yaml
+backend:
+  environment:
+    ...
+    GROQ_API_KEY: ${GROQ_API_KEY:-}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+```
 
 A single command builds all images and starts all services:
 
@@ -179,6 +194,15 @@ The model is chosen in the UI — no env vars or restarts needed. Six models are
 - **To add a model:** pull it with `ollama pull <id>` and add an entry to `runtime/app/models.py`. No service restart is needed for availability to update (the check runs on every request).
 - **To add it permanently to the list:** edit `SUPPORTED_MODELS` in `runtime/app/models.py` — that is the only file to change.
 
+**How evaluator model selection works:**
+
+The evaluator model is used only for accuracy evaluation — it is separate from the model that runs the agent.
+
+- **Set it:** go to `/settings` → Evaluator Model section → pick any model → "Set as Evaluator". Stored in browser localStorage.
+- **Supported prefixes:** `groq/<model>`, `openai/<model>`, `gemini/<model>`, or a bare Ollama model name. Examples: `groq/llama-3.3-70b-versatile`, `openai/gpt-4o-mini`, `gemini/gemini-1.5-flash`, `qwen3:4b`.
+- **Anthropic is not supported** — the evaluation endpoint requires OpenAI-compatible JSON-mode responses. Selecting an `anthropic/` model will produce a `FAILED` eval with an explanatory error message.
+- **Cloud models recommended** — Groq and OpenAI models produce more reliable structured JSON output than local Ollama models for evaluation tasks.
+
 ---
 
 ## Database
@@ -210,6 +234,7 @@ These defaults come from `backend/src/main/resources/application.properties` and
 | `successful_patterns` | Aggregated successful run patterns — rolling avg latency and tokens per `(task, agent_type, model)` combo with occurrence count |
 | `failure_patterns` | Aggregated failure patterns — occurrence count per `(task, agent_type, model, failure_reason)` combo |
 | `model_insights` | Per-model aggregate stats — total runs, success/failure counts, rolling avg latency and tokens; UNIQUE on `model`; backfilled from existing runs on first start |
+| `accuracy_evaluations` | One row per run — 0–100 accuracy score, score reasoning, task fit label, action recommendation, recommendation reasoning, evaluator model used, status (`PENDING`/`DONE`/`FAILED`); UNIQUE on `run_id` so re-evaluating overwrites in place |
 
 **Inspect the database directly:**
 ```bash
@@ -253,6 +278,8 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/memory/patterns` | Returns `{ successfulPatterns, failurePatterns }` — both lists sorted by occurrence count descending |
 | `GET` | `/api/knowledge/summary` | Returns `{ successfulPatterns, failurePatterns, modelInsights, optimizationLearnings }` — the full knowledge base in one call |
 | `GET` | `/api/knowledge/context` | Returns the knowledge context string for a given `?task=` (and optional `&model=`); empty string if no prior history exists for that task |
+| `POST` | `/api/runs/{id}/accuracy-eval` | Trigger accuracy evaluation — body: `{ "evaluatorModel": "groq/llama-3.3-70b-versatile" }`; returns 202 with a `PENDING` dto immediately; if an eval is already `PENDING` for this run, returns the existing one (no duplicate); re-triggering a `DONE`/`FAILED` run overwrites it |
+| `GET` | `/api/runs/{id}/accuracy-eval` | Get the accuracy evaluation for a run — 200 with dto if exists, 404 if not yet evaluated |
 
 WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected clients as they are emitted.
 
@@ -274,10 +301,31 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "replayOf": null,
   "failureReason": null,
   "model": "qwen3:4b",
-  "agentType": "summariser"
+  "agentType": "summariser",
+  "accuracyScore": 87,
+  "evalStatus": "DONE"
 }
 ```
-Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`.
+Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`. `accuracyScore` and `evalStatus` are `null` when no evaluation has been triggered yet.
+
+**AccuracyEvaluation response shape:**
+```json
+{
+  "id": "uuid",
+  "runId": "uuid",
+  "accuracyScore": 87,
+  "scoreReasoning": "The agent correctly identified the answer and used the calculator tool appropriately.",
+  "taskFit": "APPROPRIATE",
+  "actionRecommendation": "NO_ACTION",
+  "recommendationReasoning": "The agent performed well with no significant issues.",
+  "evaluatorModel": "groq/llama-3.3-70b-versatile",
+  "evalStatus": "DONE",
+  "errorMessage": null,
+  "createdAt": "2025-05-16T10:00:00Z",
+  "completedAt": "2025-05-16T10:00:03Z"
+}
+```
+`taskFit` is one of `APPROPRIATE`, `QUESTIONABLE`, `INAPPROPRIATE`. `actionRecommendation` is one of `NO_ACTION`, `CONSIDER_IMPROVEMENT`, `NEEDS_IMPROVEMENT`. `evalStatus` is `PENDING` while the LLM call is in flight, `DONE` on success, or `FAILED` with `errorMessage` set (e.g. if an Anthropic model is selected — not supported).
 
 ---
 
@@ -299,21 +347,21 @@ AgentScope/
 │   └── src/
 │       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /knowledge, /memory
 │       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, knowledge/ModelInsightsTable, knowledge/OptimizationLearningsTable, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, ...)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, useRunAccuracyEval, useTriggerAccuracyEval, useEvaluatorModel, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
-│       └── types/               TypeScript types mirroring backend DTOs
+│       └── types/               TypeScript types mirroring backend DTOs (includes AccuracyEvaluation)
 ├── backend/                     Spring Boot API + WebSocket server
 │   └── src/main/java/com/agentscope/
-│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, KnowledgeController)
-│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService, KnowledgeService)
-│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern, ModelInsight)
-│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, SuccessfulPatternDto, FailurePatternDto, ModelInsightDto, OptimizationLearningDto, ...)
-│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, SuccessfulPatternRepository, FailurePatternRepository, ModelInsightRepository, ...)
-│       ├── config/              CORS, beans, WebSocket config
+│       ├── controller/          REST endpoints (RunController, TraceController, AgentController, ModelController, OptimizationController, RegressionComparisonController, MemoryController, KnowledgeController, AccuracyEvalController)
+│       ├── service/             Business logic (AgentRunService, EvaluationService, FailureDetectionService, OptimizationService, SavedRunService, RegressionComparisonService, MemoryService, KnowledgeService, AccuracyEvalService)
+│       ├── model/               JPA entities (AgentRun, TraceStep, Evaluation, RegressionTest, SavedRun, OptimizationSuggestion, RegressionResult, SuccessfulPattern, FailurePattern, ModelInsight, AccuracyEvaluation)
+│       ├── dto/                 Data transfer objects (AgentRunDto, ModelDto, AgentDefinitionDto, OptimizationSuggestionDto, RegressionResultDto, AccuracyEvaluationDto, TriggerAccuracyEvalRequest, ...)
+│       ├── repository/          Database queries (AgentRunRepository, EvaluationRepository, OptimizationSuggestionRepository, RegressionResultRepository, AccuracyEvaluationRepository, ...)
+│       ├── config/              CORS, beans, async config (@EnableAsync), WebSocket config
 │       └── websocket/           WebSocket broadcast handler
 │   └── src/main/resources/
-│       └── db/migration/        V1–V17 Flyway SQL migrations
+│       └── db/migration/        V1–V18 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
         ├── main.py              POST /execute, GET /agents, GET /models endpoints
