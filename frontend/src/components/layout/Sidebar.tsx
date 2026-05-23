@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Brain, Cpu, FlaskConical, Lightbulb, Settings } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Brain, Cpu, FlaskConical, Lightbulb, Settings, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const groups = [
@@ -28,6 +28,7 @@ const groups = [
       { href: '/saved-runs', label: 'Saved Runs', icon: Bookmark },
       { href: '/optimizations', label: 'Optimizations', icon: Lightbulb },
       { href: '/knowledge', label: 'Knowledge Base', icon: Brain },
+      { href: '/improvements', label: 'Improvements', icon: Wrench },
     ],
   },
 ]

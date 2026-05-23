@@ -12,6 +12,8 @@ import { useAnalyzeWithAI } from '@/hooks/useAnalyzeWithAI'
 import { useEvaluatorModel } from '@/hooks/useEvaluatorModel'
 import { useRunAccuracyEval } from '@/hooks/useRunAccuracyEval'
 import { useTriggerAccuracyEval } from '@/hooks/useTriggerAccuracyEval'
+import { useGeneratePatch } from '@/hooks/useGeneratePatch'
+import { useAgentPatches } from '@/hooks/useAgentPatches'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
@@ -56,6 +58,9 @@ export default function TraceViewerPage({ params }: Props) {
   const { modelId: evaluatorModel } = useEvaluatorModel()
   const { data: accuracyEval } = useRunAccuracyEval(id)
   const triggerEval = useTriggerAccuracyEval()
+  const generatePatch = useGeneratePatch()
+  const { data: allPatches } = useAgentPatches()
+  const runPatch = allPatches?.find((p) => p.sourceRunId === id)
 
   const hasCompare = Boolean(run?.replayOf)
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
@@ -241,6 +246,39 @@ export default function TraceViewerPage({ params }: Props) {
                 >
                   {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : accuracyEval?.evalStatus === 'DONE' ? 'Evaluated' : accuracyEval?.evalStatus === 'FAILED' ? 'Re-evaluate' : 'Evaluate'}
                 </button>
+
+                {/* Improve Agent — only when eval is DONE with APPROPRIATE task fit */}
+                {accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit === 'APPROPRIATE' && (
+                  <button
+                    onClick={() => generatePatch.mutate(id, { onSuccess: () => router.push('/improvements') })}
+                    disabled={generatePatch.isPending || (runPatch != null && runPatch.status !== 'FAILED')}
+                    title={
+                      runPatch != null && runPatch.status !== 'FAILED'
+                        ? 'Already improved — view in Improvements'
+                        : accuracyEval.actionRecommendation === 'NO_ACTION'
+                          ? 'Agent performed well — improvement optional'
+                          : undefined
+                    }
+                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                  >
+                    {generatePatch.isPending || runPatch?.status === 'GENERATING'
+                      ? 'Generating…'
+                      : runPatch != null && runPatch.status !== 'FAILED'
+                        ? 'Improved'
+                        : 'Improve Agent'}
+                  </button>
+                )}
+                {accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit !== 'APPROPRIATE' && accuracyEval?.taskFit != null && (
+                  <button
+                    disabled
+                    title="Improvement not available — agent is not appropriate for this task type"
+                    className="rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                  >
+                    Improve Agent
+                  </button>
+                )}
               </div>
             )}
           </>

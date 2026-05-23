@@ -37,6 +37,7 @@ public class AgentRunService {
     private final MemoryService memoryService;
     private final KnowledgeService knowledgeService;
     private final AccuracyEvalService accuracyEvalService;
+    private final AgentPatchService agentPatchService;
     private final MeterRegistry meterRegistry;
 
     @Value("${runtime.base-url}")
@@ -50,6 +51,7 @@ public class AgentRunService {
                            MemoryService memoryService,
                            KnowledgeService knowledgeService,
                            AccuracyEvalService accuracyEvalService,
+                           AgentPatchService agentPatchService,
                            MeterRegistry meterRegistry) {
         this.agentRunRepository = agentRunRepository;
         this.restTemplate = restTemplate;
@@ -60,6 +62,7 @@ public class AgentRunService {
         this.memoryService = memoryService;
         this.knowledgeService = knowledgeService;
         this.accuracyEvalService = accuracyEvalService;
+        this.agentPatchService = agentPatchService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -149,7 +152,9 @@ public class AgentRunService {
 
         try {
             String knowledgeContext = knowledgeService.getKnowledgeContext(task, model);
-            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model, knowledgeContext);
+            String agentInstructions = agentPatchService.buildAgentInstructions(agentType);
+            String combinedContext = combineContexts(agentInstructions, knowledgeContext);
+            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model, combinedContext);
             RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
                     runtimeBaseUrl + "/execute",
                     runtimeRequest,
@@ -183,6 +188,13 @@ public class AgentRunService {
         memoryService.record(runId);
         knowledgeService.recordModelInsight(runId);
         recordMetrics(runId, finalStatus, finalLatency, finalTokens);
+    }
+
+    private String combineContexts(String agentInstructions, String knowledgeContext) {
+        if (agentInstructions == null && knowledgeContext == null) return null;
+        if (agentInstructions == null) return knowledgeContext;
+        if (knowledgeContext == null) return agentInstructions;
+        return agentInstructions + "\n\n" + knowledgeContext;
     }
 
     private void recordMetrics(UUID runId, String status, Long latencyMs, Integer tokens) {

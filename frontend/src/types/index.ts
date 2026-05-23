@@ -191,3 +191,19 @@ export interface AgentDetail {
   retryNote: string | null
   workflowType: string
 }
+
+export interface AgentPatch {
+  id: string
+  agentType: string
+  sourceRunId: string | null
+  evaluatorModel: string | null
+  title: string | null
+  instruction: string | null
+  rationale: string | null
+  status: 'GENERATING' | 'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVOKED' | 'FAILED'
+  errorMessage: string | null
+  createdAt: string
+  activatedAt: string | null
+  rejectedAt: string | null
+  revokedAt: string | null
+}

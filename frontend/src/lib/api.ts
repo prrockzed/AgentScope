@@ -1,4 +1,4 @@
-import type { AccuracyEvaluation, AgentDefinition, AgentDetail, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
+import type { AccuracyEvaluation, AgentDefinition, AgentDetail, AgentPatch, AgentRun, FailurePattern, FailureSummary, KnowledgeSummary, ModelDefinition, OptimizationSuggestion, RegressionResult, RegressionTest, SavedRun, SuccessfulPattern, TraceStep } from '@/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -122,4 +122,32 @@ export async function triggerAccuracyEval(runId: string, evaluatorModel: string)
   })
   if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
   return res.json() as Promise<AccuracyEvaluation>
+}
+
+export async function generatePatch(runId: string): Promise<AgentPatch> {
+  const res = await fetch(`${BASE_URL}/api/runs/${runId}/generate-patch`, { method: 'POST' })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AgentPatch>
+}
+
+export async function getAgentPatches(): Promise<AgentPatch[]> {
+  return fetcher<AgentPatch[]>('/api/agent-patches')
+}
+
+export async function activatePatch(id: string): Promise<AgentPatch> {
+  const res = await fetch(`${BASE_URL}/api/agent-patches/${id}/activate`, { method: 'PATCH' })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AgentPatch>
+}
+
+export async function rejectPatch(id: string): Promise<AgentPatch> {
+  const res = await fetch(`${BASE_URL}/api/agent-patches/${id}/reject`, { method: 'PATCH' })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AgentPatch>
+}
+
+export async function revokePatch(id: string): Promise<AgentPatch> {
+  const res = await fetch(`${BASE_URL}/api/agent-patches/${id}/revoke`, { method: 'PATCH' })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<AgentPatch>
 }
