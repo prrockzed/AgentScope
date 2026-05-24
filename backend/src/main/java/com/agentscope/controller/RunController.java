@@ -4,6 +4,7 @@ import com.agentscope.dto.AgentRunDto;
 import com.agentscope.dto.CreateRunRequest;
 import com.agentscope.service.AgentRunService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,5 +40,11 @@ public class RunController {
     @ResponseStatus(HttpStatus.CREATED)
     public AgentRunDto replayRun(@PathVariable UUID id) {
         return agentRunService.replayRun(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelRun(@PathVariable UUID id) {
+        agentRunService.cancelRun(id);
+        return ResponseEntity.ok().build();
     }
 }

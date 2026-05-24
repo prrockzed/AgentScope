@@ -33,6 +33,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Step inspection** — expand any trace step to read the exact prompt sent to the LLM and the exact response received
 - **Run history** — searchable, filterable table of all runs with status, latency, token count, model, and agent columns; filter by status, date range, latency, or token count
 - **Analytics dashboard** — latency trends, token usage over time, and success/failure breakdown — all derived from real run data
+- **Run cancellation** — click the **Stop** button in the trace viewer while a run is in progress to cancel it immediately; the run status is set to `CANCELLED` in the database at once so the UI reflects it on the next poll; the Python runtime is signalled to halt at the next trace checkpoint (after the current LLM call completes); all trace steps emitted before the cancel signal arrived are preserved in full; cancelled runs show a grey `Cancelled` badge and cannot be evaluated or improved
 - **Run replay** — re-execute any past run with the same task; navigates live to the new run's trace
 - **Side-by-side run comparison** — diff view aligns steps by number and highlights where status, event type, or tool name changed; a summary banner shows how many steps differ
 - **Automatic failure detection** — every failed run is tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); surfaced via a red banner, highlighted timeline steps, and graph node outlines
@@ -76,7 +77,7 @@ PostgreSQL  ◄─────────────────────�
 3. FastAPI executes a LangGraph workflow: Planner → Tool Selection → Tool Execution → Summarization → Validation
 4. After each step, FastAPI calls `POST /api/runs/{id}/traces` — Spring Boot persists it and broadcasts it over WebSocket
 5. The frontend receives those WebSocket events and adds each step to the trace timeline in real time
-6. When the agent finishes, Spring Boot marks the run `SUCCESS` or `FAILED` with total latency and token count
+6. When the agent finishes, Spring Boot marks the run `SUCCESS` or `FAILED` with total latency and token count; if the user clicked **Stop** during execution, the run is already `CANCELLED` in the DB — the status update and all post-processing steps below are skipped
 7. Spring Boot runs failure detection — if the run failed, it tags the run with a reason code
 8. Spring Boot runs eval generation — if the run failed, a regression test and a failing evaluation are created automatically; if the run succeeded and a regression test already exists for that task, a passing evaluation is recorded
 9. Spring Boot runs the Optimization Advisor — rule-based heuristics fire automatically and write 0–N suggestions to `optimization_suggestions`; on demand the user can also trigger AI analysis via Groq
@@ -284,6 +285,7 @@ All REST endpoints are served by the Spring Boot backend on port 8080.
 | `GET` | `/api/runs/{id}` | Get a single run |
 | `POST` | `/api/runs` | Submit a new task — triggers execution |
 | `POST` | `/api/runs/{id}/replay` | Re-run a past task; returns new run linked to original |
+| `POST` | `/api/runs/{id}/cancel` | Cancel a running run — sets status to `CANCELLED` immediately, signals the Python runtime to stop, and interrupts the Java thread as a fallback; returns 409 if the run is not `RUNNING` |
 | `GET` | `/api/runs/{id}/traces` | Get all trace steps for a run |
 | `GET` | `/api/runs/{id}/saved` | Check whether a run is saved — returns `{"saved": true/false}` |
 | `POST` | `/api/runs/{id}/save` | Save a run — idempotent; returns `SavedRunDto` (201) |
@@ -331,7 +333,7 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "evalStatus": "DONE"
 }
 ```
-Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`. `accuracyScore` and `evalStatus` are `null` when no evaluation has been triggered yet.
+Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. `status` is one of `RUNNING`, `SUCCESS`, `FAILED`, or `CANCELLED`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`. `accuracyScore` and `evalStatus` are `null` when no evaluation has been triggered yet.
 
 **AccuracyEvaluation response shape:**
 ```json
@@ -392,7 +394,7 @@ AgentScope/
 │   └── src/
 │       ├── app/                 Pages: /runs, /runs/[id], /saved-runs, /analytics, /evaluations (tabs: Regression Tests + Comparisons), /optimizations, /knowledge, /memory, /improvements
 │       ├── components/          UI components (runs, traces, analytics, evaluations/RegressionResultsTable, memory/SuccessfulPatternsTable, memory/FailurePatternsTable, knowledge/ModelInsightsTable, knowledge/OptimizationLearningsTable, improvements/PatchCard, layout)
-│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, useRunAccuracyEval, useTriggerAccuracyEval, useEvaluatorModel, useAgentPatches, useGeneratePatch, usePatchAction, ...)
+│       ├── hooks/               TanStack Query hooks (useAgents, useModels, useOptimizations, useAnalyzeWithAI, useRegressionResults, useMemoryPatterns, useKnowledgeSummary, useRunAccuracyEval, useTriggerAccuracyEval, useEvaluatorModel, useAgentPatches, useGeneratePatch, usePatchAction, useCancelRun, ...)
 │       ├── store/               Zustand store for live trace state
 │       ├── lib/                 API client, query client, utilities
 │       └── types/               TypeScript types mirroring backend DTOs (includes AccuracyEvaluation)
@@ -409,7 +411,8 @@ AgentScope/
 │       └── db/migration/        V1–V19 Flyway SQL migrations
 └── runtime/                     FastAPI agent execution engine
     └── app/
-        ├── main.py              POST /execute, GET /agents, GET /models endpoints
+        ├── main.py              POST /execute, POST /cancel/{run_id}, GET /agents, GET /models endpoints
+        ├── cancellation.py      In-memory cancelled-run set; CancellationError raised by Tracer.emit() when a run is cancelled
         ├── models.py            SUPPORTED_MODELS catalogue — the only file to edit when adding/removing models
         ├── agents/              Agent package
         │   ├── __init__.py      Entry point — public API + triggers all registrations

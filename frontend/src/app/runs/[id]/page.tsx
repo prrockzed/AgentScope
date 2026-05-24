@@ -14,6 +14,7 @@ import { useRunAccuracyEval } from '@/hooks/useRunAccuracyEval'
 import { useTriggerAccuracyEval } from '@/hooks/useTriggerAccuracyEval'
 import { useGeneratePatch } from '@/hooks/useGeneratePatch'
 import { useAgentPatches } from '@/hooks/useAgentPatches'
+import { useCancelRun } from '@/hooks/useCancelRun'
 import { useLiveTraceStore } from '@/store/liveTraceStore'
 import { useTraceWebSocket } from '@/hooks/useTraceWebSocket'
 import { RunStatusBadge } from '@/components/runs/RunStatusBadge'
@@ -60,6 +61,7 @@ export default function TraceViewerPage({ params }: Props) {
   const triggerEval = useTriggerAccuracyEval()
   const generatePatch = useGeneratePatch()
   const { data: allPatches } = useAgentPatches()
+  const cancel = useCancelRun(id)
   const runPatch = allPatches?.find((p) => p.sourceRunId === id)
 
   const hasCompare = Boolean(run?.replayOf)
@@ -192,125 +194,142 @@ export default function TraceViewerPage({ params }: Props) {
             </div>
 
             {/* Action bar */}
-            {run.status !== 'RUNNING' && (
-              <div
-                className="px-5 py-3 flex items-center gap-2 flex-wrap"
-                style={{ borderTop: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-elevated)' }}
-              >
-                {/* Save */}
+            <div
+              className="px-5 py-3 flex items-center gap-2 flex-wrap"
+              style={{ borderTop: '1px solid var(--border-custom)', backgroundColor: 'var(--bg-elevated)' }}
+            >
+              {/* Stop — only while running */}
+              {isRunning && (
                 <button
-                  disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
-                  onClick={() => isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()}
+                  onClick={() => cancel.mutate()}
+                  disabled={cancel.isPending}
                   className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={
-                    isSaved
-                      ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
-                      : { backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }
-                  }
+                  style={{ backgroundColor: '#450a0a', color: '#f87171', border: '1px solid #7f1d1d' }}
                 >
-                  {isSaved ? 'Saved' : 'Save'}
+                  {cancel.isPending ? 'Stopping…' : 'Stop'}
                 </button>
+              )}
 
-                {/* Replay */}
-                <button
-                  disabled={replay.isPending}
-                  onClick={() => replay.mutate(run.id, { onSuccess: (newRun) => router.push(`/runs/${newRun.id}`) })}
-                  className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                >
-                  {replay.isPending ? 'Replaying…' : 'Replay'}
-                </button>
-
-                <div className="flex-1" />
-
-                {/* Rule-based optimizations */}
-                {ruleBasedCount > 0 && (
+              {/* Buttons shown only when not running */}
+              {!isRunning && (
+                <>
+                  {/* Save */}
                   <button
-                    onClick={() => router.push(`/optimizations?run=${run.id}`)}
-                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
-                    style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
-                  >
-                    <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
-                    >
-                      {ruleBasedCount}
-                    </span>
-                    {ruleBasedCount === 1 ? 'Optimization' : 'Optimizations'}
-                  </button>
-                )}
-
-                {/* AI optimizations */}
-                {hasAISuggestions ? (
-                  <button
-                    onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
-                    className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
-                    style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
-                  >
-                    <span
-                      className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: '#166534', color: '#86efac' }}
-                    >
-                      {aiCount}
-                    </span>
-                    AI Optimization Insights
-                  </button>
-                ) : (
-                  <button
-                    disabled={analyzeAI.isPending}
-                    onClick={() => analyzeAI.mutate()}
+                    disabled={saveRunMutation.isPending || unsaveRunMutation.isPending}
+                    onClick={() => isSaved ? unsaveRunMutation.mutate() : saveRunMutation.mutate()}
                     className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                  >
-                    {analyzeAI.isPending ? 'Analyzing…' : 'AI Optimization Insights'}
-                  </button>
-                )}
-
-                {/* Evaluate */}
-                <button
-                  onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
-                  disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING' || accuracyEval?.evalStatus === 'DONE'}
-                  title={!evaluatorModel ? 'Select an evaluator model in Settings first' : accuracyEval?.evalStatus === 'DONE' ? 'Already evaluated' : undefined}
-                  className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                >
-                  {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : accuracyEval?.evalStatus === 'DONE' ? 'Evaluated' : accuracyEval?.evalStatus === 'FAILED' ? 'Re-evaluate' : 'Evaluate'}
-                </button>
-
-                {/* Improve Agent — only when eval is DONE with APPROPRIATE task fit */}
-                {accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit === 'APPROPRIATE' && (
-                  <button
-                    onClick={() => generatePatch.mutate(id, { onSuccess: () => router.push('/improvements') })}
-                    disabled={generatePatch.isPending || (runPatch != null && runPatch.status !== 'FAILED')}
-                    title={
-                      runPatch != null && runPatch.status !== 'FAILED'
-                        ? 'Already improved — view in Improvements'
-                        : accuracyEval.actionRecommendation === 'NO_ACTION'
-                          ? 'Agent performed well — improvement optional'
-                          : undefined
+                    style={
+                      isSaved
+                        ? { backgroundColor: '#1e3a5f', color: '#60a5fa' }
+                        : { backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }
                     }
+                  >
+                    {isSaved ? 'Saved' : 'Save'}
+                  </button>
+
+                  {/* Replay */}
+                  <button
+                    disabled={replay.isPending}
+                    onClick={() => replay.mutate(run.id, { onSuccess: (newRun) => router.push(`/runs/${newRun.id}`) })}
                     className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
                   >
-                    {generatePatch.isPending || runPatch?.status === 'GENERATING'
-                      ? 'Generating…'
-                      : runPatch != null && runPatch.status !== 'FAILED'
-                        ? 'Improved'
-                        : 'Improve Agent'}
+                    {replay.isPending ? 'Replaying…' : 'Replay'}
                   </button>
-                )}
-                {accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit !== 'APPROPRIATE' && accuracyEval?.taskFit != null && (
-                  <button
-                    disabled
-                    title="Improvement not available — agent is not appropriate for this task type"
-                    className="rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
-                  >
-                    Improve Agent
-                  </button>
-                )}
-              </div>
-            )}
+
+                  <div className="flex-1" />
+
+                  {/* Rule-based optimizations */}
+                  {ruleBasedCount > 0 && (
+                    <button
+                      onClick={() => router.push(`/optimizations?run=${run.id}`)}
+                      className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                      style={{ backgroundColor: '#2e1065', color: '#a78bfa', border: '1px solid #4c1d95' }}
+                    >
+                      <span
+                        className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                        style={{ backgroundColor: '#4c1d95', color: '#c4b5fd' }}
+                      >
+                        {ruleBasedCount}
+                      </span>
+                      {ruleBasedCount === 1 ? 'Optimization' : 'Optimizations'}
+                    </button>
+                  )}
+
+                  {/* AI optimizations */}
+                  {hasAISuggestions ? (
+                    <button
+                      onClick={() => router.push(`/optimizations?run=${run.id}&tab=ai`)}
+                      className="rounded px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                      style={{ backgroundColor: '#14291a', color: '#4ade80', border: '1px solid #166534' }}
+                    >
+                      <span
+                        className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+                        style={{ backgroundColor: '#166534', color: '#86efac' }}
+                      >
+                        {aiCount}
+                      </span>
+                      AI Optimization Insights
+                    </button>
+                  ) : (
+                    <button
+                      disabled={analyzeAI.isPending}
+                      onClick={() => analyzeAI.mutate()}
+                      className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                    >
+                      {analyzeAI.isPending ? 'Analyzing…' : 'AI Optimization Insights'}
+                    </button>
+                  )}
+
+                  {/* Evaluate — hidden for CANCELLED runs */}
+                  {run.status !== 'CANCELLED' && (
+                    <button
+                      onClick={() => triggerEval.mutate({ runId: id, evaluatorModel })}
+                      disabled={!evaluatorModel || triggerEval.isPending || accuracyEval?.evalStatus === 'PENDING' || accuracyEval?.evalStatus === 'DONE'}
+                      title={!evaluatorModel ? 'Select an evaluator model in Settings first' : accuracyEval?.evalStatus === 'DONE' ? 'Already evaluated' : undefined}
+                      className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                    >
+                      {accuracyEval?.evalStatus === 'PENDING' ? 'Evaluating…' : accuracyEval?.evalStatus === 'DONE' ? 'Evaluated' : accuracyEval?.evalStatus === 'FAILED' ? 'Re-evaluate' : 'Evaluate'}
+                    </button>
+                  )}
+
+                  {/* Improve Agent — hidden for CANCELLED; only when eval is DONE with APPROPRIATE task fit */}
+                  {run.status !== 'CANCELLED' && accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit === 'APPROPRIATE' && (
+                    <button
+                      onClick={() => generatePatch.mutate(id, { onSuccess: () => router.push('/improvements') })}
+                      disabled={generatePatch.isPending || (runPatch != null && runPatch.status !== 'FAILED')}
+                      title={
+                        runPatch != null && runPatch.status !== 'FAILED'
+                          ? 'Already improved — view in Improvements'
+                          : accuracyEval.actionRecommendation === 'NO_ACTION'
+                            ? 'Agent performed well — improvement optional'
+                            : undefined
+                      }
+                      className="rounded px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                    >
+                      {generatePatch.isPending || runPatch?.status === 'GENERATING'
+                        ? 'Generating…'
+                        : runPatch != null && runPatch.status !== 'FAILED'
+                          ? 'Improved'
+                          : 'Improve Agent'}
+                    </button>
+                  )}
+                  {run.status !== 'CANCELLED' && accuracyEval?.evalStatus === 'DONE' && accuracyEval?.taskFit !== 'APPROPRIATE' && accuracyEval?.taskFit != null && (
+                    <button
+                      disabled
+                      title="Improvement not available — agent is not appropriate for this task type"
+                      className="rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-custom)' }}
+                    >
+                      Improve Agent
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </>
         ) : null}
       </div>

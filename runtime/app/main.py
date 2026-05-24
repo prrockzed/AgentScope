@@ -6,6 +6,7 @@ import requests
 from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.cancellation import CancellationError, cancel_run, clear_run
 from app.config import settings
 from app.llm import LiteLLMChat
 from app.models import SUPPORTED_MODELS
@@ -95,12 +96,17 @@ def execute(request: ExecuteRequest):
 
     llm = LiteLLMChat(model=model, ollama_base_url=settings.ollama_base_url)
 
-    result = REGISTRY[agent_type].run_fn(
-        task=effective_task,
-        run_id=run_id,
-        tracer=tracer,
-        llm=llm,
-    )
+    try:
+        result = REGISTRY[agent_type].run_fn(
+            task=effective_task,
+            run_id=run_id,
+            tracer=tracer,
+            llm=llm,
+        )
+    except CancellationError:
+        result = {"status": "CANCELLED", "final_output": None, "total_tokens": 0}
+    finally:
+        clear_run(run_id)
 
     total_latency = int((time.time() - start) * 1000)
 
@@ -127,3 +133,9 @@ def execute(request: ExecuteRequest):
         total_tokens=result.get("total_tokens", 0),
         steps=steps,
     )
+
+
+@app.post("/cancel/{run_id}", status_code=200)
+def cancel_run_endpoint(run_id: str):
+    cancel_run(run_id)
+    return {"cancelled": run_id}

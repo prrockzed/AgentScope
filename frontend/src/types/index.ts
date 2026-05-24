@@ -1,4 +1,4 @@
-export type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED'
+export type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED'
 
 export interface AgentDefinition {
   id: string

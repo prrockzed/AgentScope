@@ -52,6 +52,10 @@ export async function replayRun(id: string): Promise<AgentRun> {
   return res.json() as Promise<AgentRun>
 }
 
+export async function cancelRun(runId: string): Promise<void> {
+  await fetch(`${BASE_URL}/api/runs/${runId}/cancel`, { method: 'POST' })
+}
+
 export async function getRegressionTests(): Promise<RegressionTest[]> {
   return fetcher<RegressionTest[]>('/api/regression-tests')
 }

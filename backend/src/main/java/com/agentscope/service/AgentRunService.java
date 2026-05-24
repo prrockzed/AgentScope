@@ -21,12 +21,18 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AgentRunService {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRunService.class);
+
+    private final ConcurrentHashMap<UUID, Thread> activeRunThreads = new ConcurrentHashMap<>();
 
     private final AgentRunRepository agentRunRepository;
     private final RestTemplate restTemplate;
@@ -142,6 +148,7 @@ public class AgentRunService {
     private void startRunThread(UUID runId, String task, String agentType, String model, String threadName) {
         Thread thread = new Thread(() -> executeRuntime(runId, task, agentType, model), threadName);
         thread.setDaemon(true);
+        activeRunThreads.put(runId, thread);
         thread.start();
     }
 
@@ -151,43 +158,71 @@ public class AgentRunService {
         Integer tokens = null;
 
         try {
-            String knowledgeContext = knowledgeService.getKnowledgeContext(task, model);
-            String agentInstructions = agentPatchService.buildAgentInstructions(agentType);
-            String combinedContext = combineContexts(agentInstructions, knowledgeContext);
-            RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model, combinedContext);
-            RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
-                    runtimeBaseUrl + "/execute",
-                    runtimeRequest,
-                    RuntimeExecuteResponse.class
-            );
+            try {
+                String knowledgeContext = knowledgeService.getKnowledgeContext(task, model);
+                String agentInstructions = agentPatchService.buildAgentInstructions(agentType);
+                String combinedContext = combineContexts(agentInstructions, knowledgeContext);
+                RuntimeExecuteRequest runtimeRequest = new RuntimeExecuteRequest(task, runId.toString(), agentType, model, combinedContext);
+                RuntimeExecuteResponse runtimeResponse = restTemplate.postForObject(
+                        runtimeBaseUrl + "/execute",
+                        runtimeRequest,
+                        RuntimeExecuteResponse.class
+                );
 
-            if (runtimeResponse != null) {
-                status = runtimeResponse.status();
-                latency = runtimeResponse.total_latency();
-                tokens = runtimeResponse.total_tokens();
+                if (runtimeResponse != null) {
+                    status = runtimeResponse.status();
+                    latency = runtimeResponse.total_latency();
+                    tokens = runtimeResponse.total_tokens();
+                }
+            } catch (RestClientException e) {
+                log.error("Runtime call failed for run {}: {}", runId, e.getMessage());
             }
-        } catch (RestClientException e) {
-            log.error("Runtime call failed for run {}: {}", runId, e.getMessage());
+
+            final String finalStatus = status;
+            final Long finalLatency = latency;
+            final Integer finalTokens = tokens;
+
+            agentRunRepository.findById(runId).ifPresent(run -> {
+                if ("CANCELLED".equals(run.getStatus())) return;
+                run.setStatus(finalStatus);
+                run.setTotalLatency(finalLatency);
+                run.setTotalTokens(finalTokens);
+                agentRunRepository.save(run);
+            });
+
+            AgentRun saved = agentRunRepository.findById(runId).orElse(null);
+            if (saved == null || "CANCELLED".equals(saved.getStatus())) return;
+
+            failureDetectionService.analyze(runId);
+            evaluationService.onRunComplete(runId);
+            optimizationService.analyze(runId);
+            regressionComparisonService.compareIfReplay(runId);
+            memoryService.record(runId);
+            knowledgeService.recordModelInsight(runId);
+            recordMetrics(runId, finalStatus, finalLatency, finalTokens);
+        } finally {
+            activeRunThreads.remove(runId);
+        }
+    }
+
+    public void cancelRun(UUID runId) {
+        AgentRun run = agentRunRepository.findById(runId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!"RUNNING".equals(run.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Run is not RUNNING");
         }
 
-        final String finalStatus = status;
-        final Long finalLatency = latency;
-        final Integer finalTokens = tokens;
+        run.setStatus("CANCELLED");
+        agentRunRepository.save(run);
 
-        agentRunRepository.findById(runId).ifPresent(run -> {
-            run.setStatus(finalStatus);
-            run.setTotalLatency(finalLatency);
-            run.setTotalTokens(finalTokens);
-            agentRunRepository.save(run);
-        });
+        try {
+            restTemplate.postForObject(runtimeBaseUrl + "/cancel/" + runId, null, Void.class);
+        } catch (RestClientException e) {
+            log.warn("Could not signal runtime to cancel run {}: {}", runId, e.getMessage());
+        }
 
-        failureDetectionService.analyze(runId);
-        evaluationService.onRunComplete(runId);
-        optimizationService.analyze(runId);
-        regressionComparisonService.compareIfReplay(runId);
-        memoryService.record(runId);
-        knowledgeService.recordModelInsight(runId);
-        recordMetrics(runId, finalStatus, finalLatency, finalTokens);
+        Thread t = activeRunThreads.get(runId);
+        if (t != null) t.interrupt();
     }
 
     private String combineContexts(String agentInstructions, String knowledgeContext) {

@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 import requests
 
+from app.cancellation import CancellationError, is_cancelled
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +45,8 @@ class Tracer:
         }
         self.steps.append(event)
         self._post_to_backend(event)
+        if is_cancelled(self.run_id):
+            raise CancellationError(f"Run {self.run_id} cancelled")
         return event
 
     def _post_to_backend(self, event: dict[str, Any]) -> None:
