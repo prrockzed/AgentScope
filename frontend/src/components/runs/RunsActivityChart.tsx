@@ -170,7 +170,7 @@ export function RunsActivityChart({ runs, isLoading, onRefresh }: Props) {
           </button>
           <span
             className="text-xs font-mono px-2 py-1 rounded"
-            style={{ color: 'var(--text-primary)', minWidth: 170, textAlign: 'center', ...controlStyle }}
+            style={{ minWidth: 170, textAlign: 'center', ...controlStyle }}
             suppressHydrationWarning
           >
             {clientNow ? toRangeLabel(windowStart, windowEnd, gran) : '—'}
