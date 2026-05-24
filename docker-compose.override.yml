@@ -1,0 +1,15 @@
+# Local development overrides — loaded automatically by Docker Compose when
+# you run "docker compose up" without explicit -f flags.
+# This file is NOT loaded when you use the explicit -f flags for production:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+services:
+  frontend:
+    build:
+      target: dev
+    environment:
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next

@@ -166,6 +166,8 @@ A single command builds all images and starts all services:
 docker compose up --build
 ```
 
+This automatically loads `docker-compose.override.yml` alongside the base file. The override adds dev-only settings to the frontend: hot-reload volumes, the `dev` build target, and `WATCHPACK_POLLING`. On a production server, you pass explicit `-f` flags which skip the override entirely.
+
 Open **http://localhost:3000** — you'll land on the Runs page.
 
 Prometheus scrapes metrics at **http://localhost:9090** and Grafana serves the live dashboard at **http://localhost:3001** (login: `admin` / `admin` → Dashboards → AgentScope).
