@@ -77,7 +77,7 @@ services:
     image: prom/prometheus:v2.54.0
     container_name: agentscope-prometheus
     ports:
-      - "9090:9090"
+      - "19090:9090"
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
