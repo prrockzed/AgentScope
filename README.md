@@ -221,7 +221,7 @@ The model is chosen in the UI — no env vars or restarts needed. Six models are
 The evaluator model is used only for accuracy evaluation — it is separate from the model that runs the agent.
 
 - **Set it:** go to `/settings` → Evaluator Model section → pick any model → "Set as Evaluator". Stored in browser localStorage.
-- **Supported prefixes:** `groq/<model>`, `openai/<model>`, `gemini/<model>`, or a bare Ollama model name. Examples: `groq/llama-3.3-70b-versatile`, `openai/gpt-4o-mini`, `gemini/gemini-1.5-flash`, `qwen3:4b`.
+- **Supported prefixes:** `groq/<model>`, `openai/<model>`, `gemini/<model>`, or a bare Ollama model name. Examples: `groq/llama-3.3-70b-versatile`, `openai/gpt-4o-mini`, `gemini/gemini-2.5-flash`, `qwen3:4b`.
 - **Anthropic is not supported** — the evaluation endpoint requires OpenAI-compatible JSON-mode responses. Selecting an `anthropic/` model will produce a `FAILED` eval with an explanatory error message.
 - **Cloud models recommended** — Groq and OpenAI models produce more reliable structured JSON output than local Ollama models for evaluation tasks.
 

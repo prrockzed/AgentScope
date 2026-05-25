@@ -31,6 +31,6 @@ SUPPORTED_MODELS: list[ModelInfo] = [
     {"id": "anthropic/claude-3-haiku-20240307",    "name": "Claude 3 Haiku (Anthropic)",    "description": "Anthropic's fastest and most compact model",          "provider": "anthropic"},
 
     # ── Google Gemini (cloud) ─────────────────────────────────────────────────
-    {"id": "gemini/gemini-2.0-flash",  "name": "Gemini 2.0 Flash (Google)",  "description": "Google's fast, efficient multimodal model",          "provider": "gemini"},
-    {"id": "gemini/gemini-1.5-pro",    "name": "Gemini 1.5 Pro (Google)",    "description": "Google's high-capability long-context model",        "provider": "gemini"},
+    {"id": "gemini/gemini-2.5-flash",      "name": "Gemini 2.5 Flash (Google)",      "description": "Google's fast, efficient next-gen model",            "provider": "gemini"},
+    {"id": "gemini/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite (Google)", "description": "Google's lightest and fastest Gemini 2.5 variant",   "provider": "gemini"},
 ]
