@@ -34,6 +34,20 @@ litellm.suppress_debug_info = True
 litellm.set_verbose = False
 
 
+class LLMError(Exception):
+    """Raised by LiteLLMChat.invoke() when the provider returns an error.
+
+    Attributes
+    ----------
+    code    : machine-readable error code stored in the DB as failureReason
+    message : human-readable detail from the provider
+    """
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 @dataclass
 class _LLMResponse:
     """Minimal response object that matches what agents expect."""
@@ -62,7 +76,31 @@ class LiteLLMChat:
         if self._api_base:
             kwargs["api_base"] = self._api_base
 
-        response = litellm.completion(**kwargs)
+        try:
+            response = litellm.completion(**kwargs)
+        except litellm.RateLimitError as e:
+            raise LLMError("RATE_LIMIT_EXCEEDED", str(e)) from e
+        except litellm.AuthenticationError as e:
+            raise LLMError("INVALID_API_KEY", str(e)) from e
+        except litellm.ContextWindowExceededError as e:
+            raise LLMError("CONTEXT_TOO_LONG", str(e)) from e
+        except litellm.ContentPolicyViolationError as e:
+            raise LLMError("CONTENT_POLICY_VIOLATION", str(e)) from e
+        except litellm.NotFoundError as e:
+            raise LLMError("MODEL_NOT_FOUND", str(e)) from e
+        except litellm.ServiceUnavailableError as e:
+            raise LLMError("MODEL_UNAVAILABLE", str(e)) from e
+        except litellm.APIConnectionError as e:
+            raise LLMError("NETWORK_ERROR", str(e)) from e
+        except litellm.Timeout as e:
+            raise LLMError("TIMEOUT", str(e)) from e
+        except litellm.BadRequestError as e:
+            raise LLMError("BAD_REQUEST", str(e)) from e
+        except litellm.InternalServerError as e:
+            raise LLMError("PROVIDER_ERROR", str(e)) from e
+        except Exception as e:
+            raise LLMError("RUNTIME_ERROR", str(e)) from e
+
         content: str = response.choices[0].message.content or ""
         total_tokens: int = response.usage.total_tokens if response.usage else 0
 

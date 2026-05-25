@@ -24,6 +24,7 @@ public class FailureDetectionService {
     public void analyze(UUID runId) {
         AgentRun run = agentRunRepository.findById(runId).orElse(null);
         if (run == null || !"FAILED".equals(run.getStatus())) return;
+        if (run.getFailureReason() != null && !run.getFailureReason().isBlank()) return;
 
         List<TraceStep> steps = traceStepRepository.findByRunIdOrderByStepNumberAsc(runId);
 

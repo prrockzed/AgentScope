@@ -23,3 +23,4 @@ class ExecuteResponse(BaseModel):
     total_latency: int
     total_tokens: int
     steps: list[TraceStepResponse]
+    error: Optional[str] = None

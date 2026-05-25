@@ -8,7 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.cancellation import CancellationError, cancel_run, clear_run
 from app.config import settings
-from app.llm import LiteLLMChat
+from app.llm import LiteLLMChat, LLMError
 from app.models import SUPPORTED_MODELS
 from app.schemas.requests import ExecuteRequest
 from app.schemas.responses import ExecuteResponse, TraceStepResponse
@@ -104,7 +104,15 @@ def execute(request: ExecuteRequest):
             llm=llm,
         )
     except CancellationError:
-        result = {"status": "CANCELLED", "final_output": None, "total_tokens": 0}
+        result = {"status": "CANCELLED", "final_output": None, "total_tokens": 0, "error": None}
+    except LLMError as e:
+        tracer.emit(
+            event_type="RUN_COMPLETED",
+            status="FAILED",
+            token_usage=0,
+            response=e.message,
+        )
+        result = {"status": "FAILED", "final_output": None, "total_tokens": 0, "error": e.code}
     finally:
         clear_run(run_id)
 
@@ -132,6 +140,7 @@ def execute(request: ExecuteRequest):
         total_latency=total_latency,
         total_tokens=result.get("total_tokens", 0),
         steps=steps,
+        error=result.get("error"),
     )
 
 

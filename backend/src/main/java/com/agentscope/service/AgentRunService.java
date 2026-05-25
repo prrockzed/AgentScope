@@ -156,6 +156,7 @@ public class AgentRunService {
         String status = "FAILED";
         Long latency = null;
         Integer tokens = null;
+        String runtimeError = null;
 
         try {
             try {
@@ -173,6 +174,7 @@ public class AgentRunService {
                     status = runtimeResponse.status();
                     latency = runtimeResponse.total_latency();
                     tokens = runtimeResponse.total_tokens();
+                    runtimeError = runtimeResponse.error();
                 }
             } catch (RestClientException e) {
                 log.error("Runtime call failed for run {}: {}", runId, e.getMessage());
@@ -181,12 +183,16 @@ public class AgentRunService {
             final String finalStatus = status;
             final Long finalLatency = latency;
             final Integer finalTokens = tokens;
+            final String finalError = runtimeError;
 
             agentRunRepository.findById(runId).ifPresent(run -> {
                 if ("CANCELLED".equals(run.getStatus())) return;
                 run.setStatus(finalStatus);
                 run.setTotalLatency(finalLatency);
                 run.setTotalTokens(finalTokens);
+                if ("FAILED".equals(finalStatus) && finalError != null) {
+                    run.setFailureReason(finalError);
+                }
                 agentRunRepository.save(run);
             });
 
@@ -287,6 +293,7 @@ public class AgentRunService {
     private record RuntimeExecuteResponse(
             String status,
             Long total_latency,
-            Integer total_tokens
+            Integer total_tokens,
+            String error
     ) {}
 }
