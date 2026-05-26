@@ -8,6 +8,25 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 
 ---
 
+## Contents
+
+- [Screenshots](#screenshots-a-glimpse-of-the-features-ahead)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Running the Project](#running-the-project)
+  - [Supported Models](#supported-models)
+  - [Evaluator Model](#how-evaluator-model-selection-works)
+- [Database](#database)
+- [API Reference](#api-reference)
+- [Project Structure](#project-structure)
+- [Built-in Agents](#built-in-agents)
+- [Creating a Custom Agent](#creating-a-custom-agent)
+- [Service Ports](#service-ports)
+
+---
+
 ## Screenshots (A Glimpse of the features ahead)
 <img width="2809" height="1503" alt="2026-05-24_01-12-16" src="https://github.com/user-attachments/assets/9de5b365-68cd-4ff3-b32c-447df81aa699" />
 &nbsp;
