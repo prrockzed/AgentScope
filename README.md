@@ -27,8 +27,8 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 
 ## Features
 
-- **Multi-agent support** — choose from 5 built-in agents (Tool Agent, Direct Answer, Chain of Thought, Summariser, Critic Agent); set a default in Settings or pick a different one per run with the "Run as…" button; each run records which agent executed it
-- **Model selection** — choose which Ollama model to use per run from a curated list (6 models); set a default in Settings or override it per run with the "Model ▾" button in the New Run dialog; models not yet pulled from Ollama are shown with a "not pulled" badge; the model used is stored with every run
+- **Multi-agent support** — choose from 10 built-in agents (Tool Agent, Direct Answer, Chain of Thought, Summariser, Critic Agent, Research Analyst, Competitive Intelligence, Data Analyst, Debug Assistant, Codebase Explainer); set a default in Settings or pick a different one per run with the "Run as…" button; each run records which agent executed it
+- **Model selection** — choose any supported model per run from a curated list covering Ollama (local) and cloud providers (Groq, OpenAI, Anthropic, Gemini); set a default in Settings or override it per run with the "Model ▾" button in the New Run dialog; cloud models show a "no API key" badge when the corresponding key is missing; Ollama models show a "not pulled" badge when not yet pulled; the model used is stored with every run
 - **Live trace viewer** — submit a task and watch every step appear in real time; each step shows event type, tool name, latency, token count, and full prompt/response
 - **Step inspection** — expand any trace step to read the exact prompt sent to the LLM and the exact response received
 - **Run history** — searchable, filterable table of all runs with status, latency, token count, model, and agent columns; filter by status, date range, latency, or token count
@@ -36,7 +36,7 @@ Think of it as Chrome DevTools + Datadog, but for LangGraph agents running on yo
 - **Run cancellation** — click the **Stop** button in the trace viewer while a run is in progress to cancel it immediately; the run status is set to `CANCELLED` in the database at once so the UI reflects it on the next poll; the Python runtime is signalled to halt at the next trace checkpoint (after the current LLM call completes); all trace steps emitted before the cancel signal arrived are preserved in full; cancelled runs show a grey `Cancelled` badge and cannot be evaluated or improved
 - **Run replay** — re-execute any past run with the same task; navigates live to the new run's trace
 - **Side-by-side run comparison** — diff view aligns steps by number and highlights where status, event type, or tool name changed; a summary banner shows how many steps differ
-- **Automatic failure detection** — every failed run is tagged with a reason code (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`); surfaced via a red banner, highlighted timeline steps, and graph node outlines
+- **Automatic failure detection** — every failed run is tagged with a reason code; LLM provider errors produce specific codes (`INVALID_API_KEY`, `RATE_LIMIT_EXCEEDED`, `CONTEXT_TOO_LONG`, `MODEL_NOT_FOUND`, `MODEL_UNAVAILABLE`, `NETWORK_ERROR`, `TIMEOUT`, `BAD_REQUEST`, `PROVIDER_ERROR`); agent logic failures produce `EMPTY_RESPONSE`, `MALFORMED_JSON`, or `RUNTIME_ERROR`; all codes are surfaced via a red banner, highlighted timeline steps, and graph node outlines
 - **Autonomous eval generation** — failed runs automatically create a regression test and a failing evaluation; when the same task later passes, the evaluation flips to passing; the Evaluations page tracks all regression tests with live `PASSING` / `FAILING` / `UNTESTED` status
 - **Baseline comparison & regression scoring** — every replay run is automatically scored against its original: latency delta, token delta, and retry delta are computed and combined into a regression score (0.0 = improvement, 1.0 = severe regression); the `/evaluations` Comparisons tab shows colour-coded delta cells (red = regressed, green = improved) and a score badge per comparison; comparisons are idempotent — replaying twice never creates a duplicate row
 - **Saved Runs** — bookmark any completed run; saved runs appear in a dedicated page with links back to the original trace; saving is a lightweight pointer — no data is duplicated
@@ -96,10 +96,10 @@ PostgreSQL  ◄─────────────────────�
 | **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, Zustand, Recharts |
 | **Backend** | Java 21, Spring Boot 3.5, JPA, Flyway, WebSocket |
 | **Database** | PostgreSQL 16 |
-| **AI Runtime** | Python 3.11, FastAPI, LangGraph, LangChain-Ollama |
-| **LLM** | Ollama (local) — model chosen per run from a curated list; default persisted in browser localStorage |
+| **AI Runtime** | Python 3.11, FastAPI, LangGraph, LiteLLM |
+| **LLM** | Ollama (local) + cloud providers (Groq, OpenAI, Anthropic, Gemini) via LiteLLM — model chosen per run; default persisted in localStorage |
 | **AI Analysis** | Groq API (`llama-3.3-70b-versatile`) — on-demand optimization suggestions; key loaded from `.env` |
-| **Accuracy Evaluation** | Multi-provider LLM routing — Groq, OpenAI, or Gemini; evaluator model selected in Settings and stored in localStorage; Ollama models also supported |
+| **Accuracy Evaluation** | Multi-provider LLM routing via LiteLLM — Groq, OpenAI, Gemini, or Ollama; evaluator model selected in Settings and stored in localStorage |
 | **Infrastructure** | Docker Compose (all services containerised) |
 | **Monitoring** | Prometheus 2.54, Grafana 11.2, Micrometer (Spring Boot), prometheus-fastapi-instrumentator (FastAPI) |
 
@@ -197,7 +197,9 @@ PostgreSQL data lives in the `postgres_data` named Docker volume. It survives `s
 
 ### Supported models
 
-The model is chosen in the UI — no env vars or restarts needed. Six models are available out of the box:
+The model is chosen in the UI — no env vars or restarts needed. Models span local Ollama and cloud providers:
+
+**Ollama (local)**
 
 | ID | Name | Description |
 |---|---|---|
@@ -208,13 +210,26 @@ The model is chosen in the UI — no env vars or restarts needed. Six models are
 | `llama3.1:8b` | Llama 3.1 8B | Meta's capable 8B Llama |
 | `mistral:7b` | Mistral 7B | Strong general-purpose model |
 
+**Cloud (requires API key in `.env`)**
+
+| ID | Name | Provider |
+|---|---|---|
+| `groq/llama-3.3-70b-versatile` | Llama 3.3 70B (Groq) | `GROQ_API_KEY` |
+| `groq/llama-3.1-8b-instant` | Llama 3.1 8B (Groq) | `GROQ_API_KEY` |
+| `groq/mixtral-8x7b-32768` | Mixtral 8x7B (Groq) | `GROQ_API_KEY` |
+| `openai/gpt-4o` | GPT-4o | `OPENAI_API_KEY` |
+| `openai/gpt-4o-mini` | GPT-4o Mini | `OPENAI_API_KEY` |
+| `anthropic/claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet | `ANTHROPIC_API_KEY` |
+| `anthropic/claude-3-haiku-20240307` | Claude 3 Haiku | `ANTHROPIC_API_KEY` |
+| `gemini/gemini-2.5-flash` | Gemini 2.5 Flash | `GEMINI_API_KEY` |
+| `gemini/gemini-2.5-flash-lite` | Gemini 2.5 Flash Lite | `GEMINI_API_KEY` |
+
 **How model selection works:**
 
-- **Default:** go to `/settings` → Default Model section → click a model → "Set as Default". The choice is saved in browser localStorage.
+- **Default:** go to `/settings` → Default Model section → click a model → "Save". The choice is saved in browser localStorage.
 - **Per run:** open the New Run dialog → click **Model ▾** → pick any model. This overrides the default for that run only.
-- **Availability:** `GET /api/models` queries Ollama in real time. Models that have not been pulled yet show a `not pulled` badge in the dropdown and the Settings page and cannot be selected.
-- **To add a model:** pull it with `ollama pull <id>` and add an entry to `runtime/app/models.py`. No service restart is needed for availability to update (the check runs on every request).
-- **To add it permanently to the list:** edit `SUPPORTED_MODELS` in `runtime/app/models.py` — that is the only file to change.
+- **Availability:** `GET /api/models` queries Ollama in real time and checks for API key env vars. Ollama models not yet pulled show a `not pulled` badge; cloud models without a key show a `no API key` badge. Both are unselectable.
+- **To add a model:** add an entry to `SUPPORTED_MODELS` in `runtime/app/models.py` — that is the only file to change.
 
 **How evaluator model selection works:**
 
@@ -335,7 +350,7 @@ WebSocket: `ws://localhost:8080/ws/traces` — streams trace events to connected
   "evalStatus": "DONE"
 }
 ```
-Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. `status` is one of `RUNNING`, `SUCCESS`, `FAILED`, or `CANCELLED`. Failed runs have `"failureReason"` set to one of `EMPTY_RESPONSE`, `MALFORMED_JSON`, `TIMEOUT`, or `RUNTIME_ERROR`. `accuracyScore` and `evalStatus` are `null` when no evaluation has been triggered yet.
+Replay runs have `"replayOf": "<original-run-uuid>"`. Normal runs have `"replayOf": null`. `status` is one of `RUNNING`, `SUCCESS`, `FAILED`, or `CANCELLED`. Failed runs have `"failureReason"` set to one of the LLM provider codes (`INVALID_API_KEY`, `RATE_LIMIT_EXCEEDED`, `CONTEXT_TOO_LONG`, `MODEL_NOT_FOUND`, `MODEL_UNAVAILABLE`, `NETWORK_ERROR`, `TIMEOUT`, `BAD_REQUEST`, `PROVIDER_ERROR`) or agent logic codes (`EMPTY_RESPONSE`, `MALFORMED_JSON`, `RUNTIME_ERROR`). `accuracyScore` and `evalStatus` are `null` when no evaluation has been triggered yet.
 
 **AccuracyEvaluation response shape:**
 ```json
@@ -420,12 +435,17 @@ AgentScope/
         │   ├── __init__.py      Entry point — public API + triggers all registrations
         │   ├── registry.py      AgentDefinition dataclass + REGISTRY dict
         │   └── builtin/         All named agent implementations
-        │       ├── __init__.py  Agent catalogue — edit this to add/remove agents
-        │       ├── tool_agent.py    LangGraph tool+retry workflow (default)
-        │       ├── direct_answer.py Single LLM call, no tools
+        │       ├── __init__.py        Agent catalogue — edit this to add/remove agents
+        │       ├── tool_agent.py      LangGraph tool+retry workflow (default)
+        │       ├── direct_answer.py   Single LLM call, no tools
         │       ├── chain_of_thought.py Step-by-step reasoning prompt
-        │       ├── summariser.py    URL fetch or content → structured summary
-        │       └── critic_agent.py  Generator → critic → revisor (3 LLM calls)
+        │       ├── summariser.py      URL fetch or content → structured summary
+        │       ├── critic_agent.py    Generator → critic → revisor (3 LLM calls)
+        │       ├── research_analyst.py Multi-source web research + citation report
+        │       ├── competitive_intel.py Competitor analysis + feature matrix
+        │       ├── data_analyst.py    CSV/JSON EDA + statistics report
+        │       ├── debug_assistant.py Error/stack trace diagnosis + ranked fixes
+        │       └── codebase_explainer.py GitHub URL or local path → architectural brief
         ├── tools/               fetch_website, calculator, file_reader
         ├── tracing/             Trace event emission
         ├── validators/          Output validation
@@ -436,7 +456,7 @@ AgentScope/
 
 ## Built-in Agents
 
-Five agents ship out of the box. Select one in the **Settings** page to set it as your default, or use **Run as…** in the New Run dialog to pick per-run.
+Ten agents ship out of the box. Select one in the **Settings** page to set it as your default, or use **Run as…** in the New Run dialog to pick per-run.
 
 | ID | Name | When to use |
 |---|---|---|
@@ -445,6 +465,11 @@ Five agents ship out of the box. Select one in the **Settings** page to set it a
 | `chain_of_thought` | Chain of Thought | Logic, maths, multi-part questions. Forces step-by-step reasoning before answering. |
 | `summariser` | Summariser | Pass a URL or raw content. Returns a structured summary with key points and takeaways. |
 | `critic_agent` | Critic Agent | Quality-sensitive tasks. Generates a draft, critiques it, then rewrites for accuracy. |
+| `research_analyst` | Research Analyst | Fetches 4–6 authoritative web sources, cross-references for consensus and conflicts, and produces a structured report with citations. |
+| `competitive_intel` | Competitive Intelligence | Identifies 4–5 competitors, fetches their pages, extracts pricing and features, and produces a strategic landscape report. |
+| `data_analyst` | Data Analyst | Reads a CSV or JSON file, computes statistics, detects outliers and correlations, and produces a full EDA report. |
+| `debug_assistant` | Debug Assistant | Parses an error/stack trace, reads referenced source files, diagnoses root cause, and proposes 3 ranked concrete fixes. |
+| `codebase_explainer` | Codebase Explainer | Accepts a GitHub URL or local path, reads the README and up to 8 key source files, and produces a deep architectural brief with data flows and design patterns. |
 
 The Tool Agent uses three tools internally:
 
