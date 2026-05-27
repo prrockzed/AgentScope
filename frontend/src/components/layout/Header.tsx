@@ -9,6 +9,7 @@ function getTitle(pathname: string): string {
   if (pathname.startsWith('/analytics')) return 'Analytics'
   if (pathname.startsWith('/evaluations')) return 'Evaluations'
   if (pathname.startsWith('/failures')) return 'Failures'
+  if (pathname.startsWith('/about')) return 'About'
   if (pathname.startsWith('/settings')) return 'Settings'
   if (pathname.startsWith('/optimizations')) return 'Optimizations'
   if (pathname.startsWith('/knowledge')) return 'Knowledge'

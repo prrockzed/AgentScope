@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Brain, Cpu, FlaskConical, Lightbulb, Settings, Wrench } from 'lucide-react'
+import { BarChart3, Activity, AlertTriangle, Bookmark, Bot, Brain, Cpu, FlaskConical, Info, Lightbulb, Settings, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const groups = [
@@ -92,13 +92,17 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Settings */}
-      <div className="p-3" style={{ borderTop: '1px solid var(--border-custom)' }}>
-        {(() => {
-          const active = pathname.startsWith('/settings')
+      {/* About + Settings */}
+      <div className="p-3 flex flex-col gap-1" style={{ borderTop: '1px solid var(--border-custom)' }}>
+        {[
+          { href: '/about', label: 'About', icon: Info },
+          { href: '/settings', label: 'Settings', icon: Settings },
+        ].map(({ href, label, icon: Icon }) => {
+          const active = pathname.startsWith(href)
           return (
             <Link
-              href="/settings"
+              key={href}
+              href={href}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 active ? 'text-white' : 'hover:text-white',
@@ -109,11 +113,11 @@ export function Sidebar() {
                   : { color: 'var(--text-muted)' }
               }
             >
-              <Settings size={16} />
-              Settings
+              <Icon size={16} />
+              {label}
             </Link>
           )
-        })()}
+        })}
       </div>
     </aside>
   )
